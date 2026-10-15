@@ -1,0 +1,77 @@
+# momo
+
+Workspace 分離型のパーソナル Bot platform。一人の所有者が、個人用・会社用のように分けた Workspace ごとに Bot と外部接続を持つ。
+
+## Language
+
+### 所有と会話
+
+**Workspace**:
+所有者が個人用・会社 A 用のように分ける、Bot・会話・記憶・外部接続の所有と権限の境界。中のものは作られた Workspace に属し続ける。
+_Avoid_: tenant, org, project, Slack workspace
+
+**Slack team**:
+Slack 側の workspace。momo の Workspace とは別のもの。
+_Avoid_: Slack workspace
+
+**Bot**:
+1 つの Workspace に属する永続的な人格。指示・tool 設定・記憶を持ち、別の Workspace へは移らない。
+_Avoid_: agent, agent group, persona
+
+**Conversation**:
+人と、同じ Workspace の 1 体以上の Bot が発言を交わす場。公開の発言は、参加している Bot すべてが読める。
+_Avoid_: chat, room, group, thread
+
+**主担当 Bot**:
+Conversation に 1 体だけいて、mention の無い人の発言に応える Bot。
+_Avoid_: default bot, owner bot
+
+**Session**:
+1 つの Conversation で 1 体の Bot が途切れずに続ける、1 本のモデルの文脈。reset や Bot の指示の変更で閉じ、新しい Session に替わる。会話履歴と tool の結果はこの中に閉じる。
+_Avoid_: thread, chat session
+
+**Run**:
+ある Session の中で 1 体の Bot が行う 1 回の実行。それを起こした主体（所有者、Channel binding 経由の外部の人、Job）を持つ。
+_Avoid_: turn, invocation, job
+
+**Attachment**:
+Conversation の公開の発言に付いたファイル。その Conversation に参加している Bot すべてが読める。Bot が作業中に作ったファイルは、返答に付けるまで Attachment ではない。
+_Avoid_: file, upload
+
+**Channel binding**:
+外部の channel（Slack team と channel の組）を 1 つの Conversation に結びつける設定。外部の channel と Conversation は 1 対 1 で、全 Workspace を通して重ならない。
+_Avoid_: channel link, subscription
+
+**Memory item**:
+Bot が Conversation をまたいで持ち越す長期の記憶の 1 件。1 体の Bot に属し、別の Conversation へ知識が渡る唯一の経路になる。
+_Avoid_: note, knowledge
+
+### 外部接続
+
+**Provider app**:
+外部 provider に登録した OAuth 用の App や client（Slack App、Google の OAuth client）。client secret などの秘密を持ち、1 つの Workspace に属する。
+_Avoid_: OAuth client, integration
+
+**Installation**:
+外部 provider 側で一緒に失効する同意の単位。Slack では App と Slack team（または Enterprise org）の組、Google では Cloud project とアカウントの組。1 つの Workspace にだけ属する。
+_Avoid_: authorization, consent, app install
+
+**Connection**:
+Installation のもとで、外部 service を 1 つの主体として操作するための接続。Credential kind を 1 つだけ持つ。
+_Avoid_: account, integration, credential
+
+**Credential kind**:
+Connection が外部 service を誰として操作するか。Slack Bot、Slack User、Google のユーザーなど。
+_Avoid_: token type
+
+**Grant**:
+Bot が、ある Connection のどの操作をどの対象に使えるかの許可。その Bot が参加するすべての Conversation で効く。Connection があっても Grant が無ければ使えない。
+_Avoid_: permission, scope
+
+**ConnectionRequest**:
+Run の中で Bot が人に出す「この provider のこの操作を使いたい」という要求。人は同じ Workspace の Connection を選ぶか新しく接続して応え、Grant はそれとは別に与える。
+_Avoid_: auth request, connection prompt
+
+**Model credential**:
+Bot がモデルとの通信に使う資格情報。Workspace に属し、その Workspace の Bot すべてが使う。
+_Avoid_: API key
