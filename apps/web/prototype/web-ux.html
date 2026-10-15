@@ -121,10 +121,84 @@ table.t th{color:var(--mute);font-weight:600;font-size:12px}
 .dbg button.on{background:#fde047;color:#111}
 .dbg .seg{display:flex;gap:4px;align-items:center}
 .dbg pre{white-space:pre-wrap;word-break:break-all;font-size:10.5px;color:#bde;max-height:40vh;overflow:auto;margin:4px 0 0}
+.vd{--bg:#151515;--line:#323232;--ink:#ececec;--mute:#9b9b9b;height:100%;background:var(--bg);color:var(--ink)}
+.vd button{background:#2b2b2b;border-color:#3a3a3a;color:var(--ink);border-radius:999px;padding:4px 12px}
+.vd button.primary{background:#f2f2f2;color:#111;border-color:#f2f2f2}
+.vd button.danger{color:#f87171}
+.vd input,.vd textarea,.vd select{background:#1e1e1e;border-color:#3a3a3a;color:var(--ink)}
+.vd .modal{background:#1c1c1c;border:1px solid #333}
+.vd .warn{background:#3a2e0a;border-color:#6b5310;color:#fde68a}
+.vd .pick{border-color:#333}
+.d-layout{display:flex;height:100%}
+.d-tiles{width:60px;flex:none;background:#0e0e0e;display:flex;flex-direction:column;align-items:center;gap:12px;padding:14px 0}
+.vd .d-tile{width:40px;height:40px;border-radius:11px;border:none;color:#fff;font-weight:800;position:relative;padding:0}
+.vd .d-tile.on{box-shadow:0 0 0 2px #0e0e0e,0 0 0 4px #fff}
+.d-side{width:280px;flex:none;background:#1b1b1b;display:flex;flex-direction:column;border-right:1px solid #262626}
+.d-side-top{display:flex;align-items:center;gap:8px;padding:12px 12px 8px}
+.d-side-top .ws{font-weight:800;flex:1}
+.vd .d-icon{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center}
+.d-list{flex:1;overflow:auto;padding:4px 8px}
+.d-item{display:flex;gap:10px;align-items:center;padding:8px;border-radius:10px;cursor:pointer}
+.d-item.on{background:#2a2a2a}
+.d-item .t{font-weight:600}
+.d-item .p{color:var(--mute);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.d-av{width:36px;height:36px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:800;color:#111;flex:none}
+.d-av.sm{width:22px;height:22px;font-size:11px}
+.d-avg{width:36px;height:36px;position:relative;flex:none}
+.d-avg .d-av:first-child{position:absolute;left:0;top:0}.d-avg .d-av:last-child{position:absolute;right:0;bottom:0;box-shadow:0 0 0 2px #1b1b1b}
+.d-pdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#f59e0b;vertical-align:middle;margin-left:4px}
+.d-bottom{display:flex;gap:8px;align-items:center;padding:12px}
+.vd .d-me{width:34px;height:34px;padding:0;font-size:12px}
+.vd .d-appsbtn{flex:1;display:flex;justify-content:center;gap:8px;align-items:center;padding:8px}
+.d-main{flex:1;display:flex;flex-direction:column;min-width:0;position:relative}
+.d-head{display:flex;justify-content:center;align-items:center;padding:10px;position:relative;flex:none}
+.d-head .wsd{position:absolute;left:16px;font-size:12px;color:var(--mute)}
+.d-pill{display:inline-flex;align-items:center;gap:8px;background:#1f1f1f;border:1px solid #333;border-radius:999px;padding:4px 14px 4px 6px;cursor:pointer}
+.d-msgs{flex:1;overflow:auto;padding:12px 24px;display:flex;flex-direction:column;gap:8px}
+.d-b{align-self:flex-start;background:#242424;border-radius:16px;padding:8px 14px;max-width:560px;white-space:pre-wrap}
+.d-h{align-self:flex-end;background:#333;border-radius:16px;padding:8px 14px;max-width:520px;white-space:pre-wrap}
+.d-card{align-self:flex-start;background:#1e1e1e;border:1px solid #2f2f2f;border-radius:16px;padding:12px 14px;width:min(560px,100%)}
+.d-appcard{display:flex;gap:12px;align-items:center}
+.d-appicon{width:40px;height:40px;border-radius:10px;display:inline-flex;align-items:center;justify-content:center;font-weight:900;flex:none;background:#fff}
+.d-appicon.sm{width:22px;height:22px;border-radius:6px;font-size:12px}
+.d-appicon.xs{width:16px;height:16px;border-radius:4px;font-size:10px}
+.d-appicon.slack{color:#4a154b}.d-appicon.google{color:#1a73e8}
+.d-appcard .meta{flex:1;min-width:0}
+.d-appcard .desc{color:var(--mute);font-size:12px}
+.d-ok{color:#4ade80;background:#13261a;border-radius:999px;padding:3px 10px;font-size:12px;white-space:nowrap}
+.d-rows{display:grid;grid-template-columns:120px 1fr;border-top:1px solid #2f2f2f;margin-top:10px}
+.d-rows>*{padding:7px 0;border-bottom:1px solid #2a2a2a;font-size:13px}
+.d-rows>span{color:var(--mute)}
+.d-body{padding:10px 0;white-space:pre-wrap}
+.d-foot{display:flex;align-items:center;gap:8px}
+.d-foot .r{margin-left:auto;color:var(--mute);font-size:12px;cursor:pointer}
+.d-status{margin-left:auto;font-size:12px;color:var(--mute);display:flex;align-items:center;gap:6px;background:#262626;border-radius:999px;padding:1px 10px}
+.d-status::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--dot,#9b9b9b)}
+.d-detail{margin-top:8px;font-size:12px}
+.d-composer{margin:8px 24px 14px;display:flex;align-items:center;gap:8px;background:#1f1f1f;border:1px solid #333;border-radius:999px;padding:6px;flex:none}
+.d-composer input{border:none;background:transparent}
+.vd .d-round{width:30px;height:30px;padding:0;flex:none}
+.d-picker{position:absolute;top:0;left:0;right:0;bottom:0;background:var(--bg);z-index:5;padding:10px 16px}
+.d-picker .bar{display:flex;gap:8px;align-items:center;color:var(--mute);border-bottom:1px solid #2a2a2a;padding-bottom:8px}
+.d-menu{margin:6px 0 0 20px;background:#1f1f1f;border:1px solid #333;border-radius:12px;padding:6px;max-width:560px}
+.d-mi{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:8px;cursor:pointer}
+.d-mi:hover{background:#2a2a2a}
+.d-kbd{margin-left:auto;font-size:11px;color:var(--mute);border:1px solid #3a3a3a;border-radius:4px;padding:0 4px}
+.d-modal{background:#1c1c1c;color:var(--ink);border:1px solid #333;border-radius:16px;width:540px;max-width:94vw;padding:18px;display:flex;flex-direction:column;gap:12px;max-height:86vh;overflow:auto}
+.d-steps{display:flex;gap:6px;font-size:12px}
+.d-steps span{flex:1;text-align:center;padding:4px;border-radius:6px;background:#262626;color:var(--mute)}
+.d-steps span.now{background:#f2f2f2;color:#111;font-weight:700}
+.d-steps span.done{background:#13261a;color:#4ade80}
+.vd .d-opt{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;border-radius:12px;padding:10px 12px;width:100%}
+.d-opt .hint{font-size:12px;color:var(--mute)}
+.d-sec h4{margin:0 0 6px;font-size:12px;color:var(--mute)}
+.d-connrow{padding:6px 0;border-top:1px solid #2a2a2a}
+.d-consent{background:#fff;color:#1d1d1b;border-radius:12px;overflow:hidden}
+.d-consent button{background:#1d1d1b;color:#fff}
 </style>
 </head>
 <body>
-<div class="banner">PROTOTYPE（捨てる）: 接続の同意・Bot への付与・一回承認と、Slack の実行主体が誤解なく読める画面構成を 3 案で比べる。← → か下の pill で切替。状態は memory だけで、reload で初期化。実 OAuth・鍵・API は無い。</div>
+<div class="banner">PROTOTYPE（捨てる）: 接続の同意・Bot への付与・一回承認と、Slack の実行主体が誤解なく読める画面構成を 4 案で比べる。← → か下の pill で切替。状態は memory だけで、reload で初期化。実 OAuth・鍵・API は無い。</div>
 <div id="app"></div>
 <div id="dock"></div>
 <div id="dbg"></div>
@@ -133,6 +207,7 @@ const VARIANTS = [
   { key: 'A', name: '会話の中のカード' },
   { key: 'B', name: '右の保留レーン' },
   { key: 'C', name: 'Bot の権限ページと承認キュー' },
+  { key: 'D', name: 'Grok 風 + Workspace タイル' },
 ];
 const SLACK = {
   ws_work: { team: 'Acme（acme.slack.com）', app: 'momo-acme', bot: '@momo-bot', user: '@owner' },
@@ -162,7 +237,7 @@ function seed() {
       { id: 'ws_work', name: '会社 A', color: '#4338ca' },
     ],
     bots: [{ id: 'bot_travel', ws: 'ws_personal', name: '旅行 Bot', instruction: '旅行の計画を手伝う' }],
-    conversations: [{ id: 'conv_trip', ws: 'ws_personal', title: '旅行の計画', botIds: ['bot_travel'], primaryBotId: 'bot_travel' }],
+    conversations: [{ id: 'conv_trip', ws: 'ws_personal', title: '旅行の計画', botIds: ['bot_travel'], primaryBotId: 'bot_travel', direct: true }],
     messages: [
       { id: 'msg_s1', convId: 'conv_trip', from: 'human', text: '来月の連休の予定を見て' },
       { id: 'msg_s2', convId: 'conv_trip', from: 'bot', botId: 'bot_travel', text: '（偽の返答）カレンダーを見ました。3 日から 5 日が空いています。' },
@@ -172,7 +247,8 @@ function seed() {
     requests: [],
     grants: [{ id: 'grant_g1', ws: 'ws_personal', botId: 'bot_travel', connectionId: 'conn_g1', operation: 'calendar.events.list', targets: ['primary カレンダー'], mode: 'allow', revoked: false }],
     operations: [],
-    ui: { conv: {}, view: 'chat', selected: null, panel: false, modal: null },
+    proposals: [],
+    ui: { conv: {}, view: 'chat', selected: null, panel: false, modal: null, picker: false, expanded: null },
     scenario: { nextOutcome: 'succeeded' },
   };
 }
@@ -194,7 +270,8 @@ function activeConv() {
 }
 function pending(wsId) {
   return S.requests.filter((r) => r.ws === wsId && (r.status === 'open' || r.status === 'connected')).length
-    + S.operations.filter((o) => o.ws === wsId && (o.status === 'awaiting_approval' || o.status === 'unknown_needs_reconciliation')).length;
+    + S.operations.filter((o) => o.ws === wsId && (o.status === 'awaiting_approval' || o.status === 'unknown_needs_reconciliation')).length
+    + S.proposals.filter((p) => p.ws === wsId && p.status === 'open').length;
 }
 function digest(o) {
   const c = conn(o.connectionId);
@@ -216,7 +293,19 @@ function humanSay(convId, text) {
   const mentioned = c.botIds.filter((b) => text.includes('@' + bot(b).name));
   for (const b of mentioned.length ? mentioned : [c.primaryBotId]) botRespond(c, b, text);
 }
+function proposeBot(c, b, text) {
+  if (S.proposals.some((p) => p.botId === b.id && p.status === 'open')) {
+    botSay(c.id, b.id, '上の設定の案を保存するか、破棄してから教え直してください。');
+    return;
+  }
+  const name = /slack|会社|仕事|定例|議事録/i.test(text) ? '仕事 Bot' : /旅行/.test(text) ? '旅行 Bot' : 'アシスタント Bot';
+  const p = { id: newId('prop'), ws: c.ws, botId: b.id, convId: c.id, name, instruction: `${text.slice(0, 60)} を手伝う`, status: 'open' };
+  S.proposals.push(p);
+  botSay(c.id, b.id, `${name} として手伝います。設定の案を出したので、よければ保存してください。`);
+  trustedRef(c.id, { type: 'botProposal', id: p.id });
+}
 function botRespond(c, botId, text) {
+  if (bot(botId).draft) return proposeBot(c, bot(botId), text);
   if (/slack|投稿|post/i.test(text)) botWantsToPost(c, botId, (text.match(/#[\w-]+/) || ['#general'])[0]);
   else botSay(c.id, botId, '（偽の返答）わかりました。ほかに必要なことがあれば言ってください。');
 }
@@ -281,7 +370,7 @@ const A = {
   ws: ({ id }) => { S.activeWs = id; S.ui.selected = null; },
   prevVariant: () => cycle(-1),
   nextVariant: () => cycle(1),
-  openModal: ({ type }) => { S.ui.modal = { type }; },
+  openModal: ({ type, req: rid, bot: botId }) => { S.ui.modal = { type, req: rid, bot: botId }; },
   closeModal: () => { S.ui.modal = null; },
   togglePanel: () => { S.ui.panel = !S.ui.panel; },
   view: ({ v }) => { S.ui.view = v; S.ui.selected = null; },
@@ -311,8 +400,9 @@ const A = {
     if (el) el.value = '';
     humanSay(convId, text);
   },
-  oauth: () => { S.ui.modal = { type: 'oauth' }; },
-  oauthAllow: () => {
+  oauth: ({ back, req: rid }) => { S.ui.modal = { type: 'oauth', back, req: rid }; },
+  oauthCancel: ({ back, req: rid }) => { S.ui.modal = back ? { type: back, req: rid } : null; },
+  oauthAllow: ({ back, req: rid }) => {
     const t = SLACK[S.activeWs];
     const existing = S.installations.find((i) => i.ws === S.activeWs && i.provider === 'slack');
     if (existing) {
@@ -324,7 +414,48 @@ const A = {
       S.connections.push({ id: newId('conn'), ws: S.activeWs, installationId: i.id, provider: 'slack', kind: 'slack_bot', subject: t.bot, status: 'active' });
       S.connections.push({ id: newId('conn'), ws: S.activeWs, installationId: i.id, provider: 'slack', kind: 'slack_user', subject: t.user, status: 'active' });
     }
-    S.ui.modal = null;
+    S.ui.modal = back ? { type: back, req: rid } : null;
+  },
+  dNew: () => { S.ui.picker = true; },
+  dPickerClose: () => { S.ui.picker = false; },
+  dCreateBot: () => {
+    const b = { id: newId('bot'), ws: S.activeWs, name: '新しい Bot', instruction: '', draft: true };
+    S.bots.push(b);
+    const c = { id: newId('conv'), ws: S.activeWs, title: b.name, botIds: [b.id], primaryBotId: b.id, direct: true };
+    S.conversations.push(c);
+    S.ui.conv[S.activeWs] = c.id;
+    S.ui.picker = false;
+    botSay(c.id, b.id, 'まず、どんなことで一番手伝ってほしいですか？');
+  },
+  dGroup: () => { S.ui.picker = false; S.ui.modal = { type: 'newConv' }; },
+  dStartChat: ({ id: botId }) => {
+    let c = S.conversations.find((x) => x.ws === S.activeWs && x.direct && x.primaryBotId === botId);
+    if (!c) {
+      c = { id: newId('conv'), ws: S.activeWs, title: bot(botId).name, botIds: [botId], primaryBotId: botId, direct: true };
+      S.conversations.push(c);
+    }
+    S.ui.conv[S.activeWs] = c.id;
+    S.ui.picker = false;
+  },
+  dToggle: ({ id }) => { S.ui.expanded = S.ui.expanded === id ? null : id; },
+  dPick: (d) => { A.pickConn(d); if (req(d.req).status === 'granted') S.ui.modal = null; },
+  dGrant: (d, fd) => { A.grant(d, fd); if (req(d.req).status === 'granted') S.ui.modal = null; },
+  dDecline: (d) => { A.declineReq(d); S.ui.modal = null; },
+  applyProposal: ({ id }) => {
+    const p = S.proposals.find((x) => x.id === id);
+    if (p.status !== 'open') return;
+    const b = bot(p.botId);
+    p.status = 'applied';
+    Object.assign(b, { name: p.name, instruction: p.instruction, draft: false });
+    const c = convOf(p.convId);
+    if (c.direct) c.title = p.name;
+    botSay(c.id, b.id, '設定しました。何から始めますか？');
+  },
+  discardProposal: ({ id }) => {
+    const p = S.proposals.find((x) => x.id === id);
+    if (p.status !== 'open') return;
+    p.status = 'discarded';
+    botSay(p.convId, p.botId, 'わかりました。どんな Bot にしたいか、もう一度教えてください。');
   },
   pickConn: ({ req: rid, conn: cid }) => {
     const r = req(rid);
@@ -482,7 +613,7 @@ function chatView(conv, refRender) {
     <div class="chat-head"><b>${esc(conv.title)}</b> <span class="mute small">参加: ${conv.botIds.map((id) => esc(bot(id).name) + (id === conv.primaryBotId ? '（主担当）' : '')).join('、')}</span></div>
     <div class="msgs" id="msgs">${msgs.map((m) => m.from === 'human' ? `<div class="msg human"><div class="bubble">${esc(m.text)}</div></div>`
       : m.from === 'bot' ? `<div class="msg bot"><div class="who-name">${esc(bot(m.botId).name)}</div><div class="bubble">${esc(m.text)}</div></div>`
-      : refRender(m.ref)).join('')}</div>
+      : m.ref.type === 'botProposal' ? proposalCard(m.ref.id) : refRender(m.ref)).join('')}</div>
     <form class="composer" data-act="send" data-conv="${conv.id}"><input id="composer" name="text" autocomplete="off" placeholder="例: #general に今日の議事録を投稿して"><button class="primary">送信</button></form>
   </div>`;
 }
@@ -599,9 +730,159 @@ function VariantC() {
     </div><div class="c-body">${body}</div></div>`;
 }
 
+function proposalCard(id) {
+  const p = S.proposals.find((x) => x.id === id);
+  return `<div class="card k-grant"><div class="card-h"><span class="tag">Bot の設定案</span><span class="by">momo が表示（Bot が書いた案）</span></div>
+    <div class="kv"><span>名前</span><b>${esc(p.name)}</b><span>指示</span><div>${esc(p.instruction)}</div></div>
+    ${p.status === 'open' ? `<div class="row"><button class="primary" data-act="applyProposal" data-id="${p.id}">保存</button><button data-act="discardProposal" data-id="${p.id}">破棄</button></div>` : `<div class="state-line mute">${p.status === 'applied' ? '保存した' : '破棄した'}</div>`}</div>`;
+}
+
+const AV_COLORS = ['#f97316', '#22c55e', '#e5e5e5', '#38bdf8', '#facc15', '#a78bfa'];
+function avatar(b, cls = '') {
+  let h = 0;
+  for (const ch of b.name) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+  return `<span class="d-av ${cls}" style="background:${AV_COLORS[h % AV_COLORS.length]}">${esc(b.name.slice(0, 1))}</span>`;
+}
+function wsDot(id) {
+  const w = wsOf(id);
+  return `<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:8px;height:8px;border-radius:50%;background:${w.color}"></span>${esc(w.name)}</span>`;
+}
+function convPreview(c) {
+  const m = S.messages.filter((x) => x.convId === c.id).at(-1);
+  if (!m) return '';
+  if (m.from === 'trusted') return { operation: 'Slack メッセージ', request: 'Slack の接続', botProposal: 'Bot の設定' }[m.ref.type];
+  return m.text;
+}
+function convPending(c) {
+  return S.requests.some((r) => r.convId === c.id && (r.status === 'open' || r.status === 'connected'))
+    || S.operations.some((o) => o.convId === c.id && (o.status === 'awaiting_approval' || o.status === 'unknown_needs_reconciliation'))
+    || S.proposals.some((p) => p.convId === c.id && p.status === 'open');
+}
+function dAppCard(r) {
+  const b = bot(r.botId);
+  const hasActive = S.connections.some((c) => c.ws === r.ws && c.provider === 'slack' && c.status === 'active');
+  let desc = `${esc(b.name)} が使いたい: 投稿（${esc(r.want)}）`, right = '';
+  if (r.status === 'open') right = `<button class="danger" data-act="declineReq" data-req="${r.id}">断る</button><button data-act="openModal" data-type="dConnect" data-req="${r.id}">${hasActive ? '許可' : '認証'}</button>`;
+  else if (r.status === 'connected') right = `<button data-act="openModal" data-type="dConnect" data-req="${r.id}">続ける</button>`;
+  else if (r.status === 'granted') {
+    const g = S.grants.find((x) => x.id === r.grantId), c = conn(g.connectionId);
+    desc = `${whoPill(c)} として · ${esc(g.targets.join(' '))} に投稿 · 毎回承認`;
+    right = (c.status !== 'active' ? '<button data-act="oauth">再接続</button>' : '') + (g.revoked ? '<span class="st bad">取り消し済み</span>' : '<span class="d-ok">✓ 許可済み</span>');
+  } else right = '<span class="mute small">断った</span>';
+  return `<div class="d-card"><div class="d-appcard"><span class="d-appicon slack">#</span><div class="meta"><b>Slack</b><div class="desc">${desc}</div></div>${right}</div></div>`;
+}
+function dSlackCard(o) {
+  const c = conn(o.connectionId), b = bot(o.botId);
+  const dot = { awaiting_approval: '#f59e0b', authorized: '#60a5fa', dispatching: '#60a5fa', succeeded: '#4ade80', known_failed: '#f87171', unknown_needs_reconciliation: '#facc15', denied: '#f87171' }[o.status] ?? '#9b9b9b';
+  const open = S.ui.expanded === o.id;
+  return `<div class="d-card"><div class="d-foot"><span class="d-appicon slack sm">#</span><b>Slack メッセージ</b><span class="d-status" style="--dot:${dot}">${OP_LABEL[o.status]}</span></div>
+    <div class="d-rows">
+      <span>Workspace</span><div>${wsDot(o.ws)}</div>
+      <span>Slack</span><div>${esc(inst(c.installationId).team)}</div>
+      <span>送信者</span><div>${whoPill(c)}${c.status !== 'active' ? ' <span class="st bad">失効</span>' : ''}</div>
+      <span>宛先</span><div>${esc(o.target)}</div>
+      <span>スレッド</span><div>新着メッセージ</div>
+    </div>
+    <div class="d-body">${esc(o.body)}</div>
+    ${c.status !== 'active' && o.status === 'awaiting_approval' ? '<div class="warn">この接続は失効しています。送信を押しても、実行直前の再確認で止まります。</div>' : ''}
+    ${o.note ? `<div class="small mute" style="margin-bottom:8px">${esc(o.note)}</div>` : ''}
+    ${o.status === 'unknown_needs_reconciliation' ? `<div class="row" style="margin-bottom:8px"><span class="mute small">Slack の ${esc(o.target)} を見て確かめる:</span><button data-act="reconcile" data-op="${o.id}" data-r="found">投稿されていた</button><button data-act="reconcile" data-op="${o.id}" data-r="missing">投稿されていない</button></div>` : ''}
+    <div class="d-foot">${o.status === 'awaiting_approval' ? `<button class="primary" data-act="approve" data-op="${o.id}">送信</button><button data-act="reject" data-op="${o.id}">破棄</button>` : ''}<span class="r" data-act="dToggle" data-id="${o.id}">毎回承認 ${open ? '⌃' : '⌄'}</span></div>
+    ${open ? `<div class="d-detail kv"><span>依頼した Bot</span><b>${esc(b.name)}</b><span>承認の範囲</span><div>この 1 回だけ。送信者・宛先・本文が変われば出し直し</div><span>期限</span><div>${hhmm(o.expiresAt)} まで</div><span>固定した内容</span><span class="mono">digest ${o.digest}</span></div>` : ''}
+  </div>`;
+}
+function dProposalCard(id) {
+  const p = S.proposals.find((x) => x.id === id);
+  return `<div class="d-card"><div class="d-foot">${avatar(bot(p.botId), 'sm')}<b>Bot の設定</b><span class="d-status">${{ open: '保存待ち', applied: '保存済み', discarded: '破棄' }[p.status]}</span></div>
+    <div class="d-rows"><span>名前</span><div>${esc(p.name)}</div><span>指示</span><div>${esc(p.instruction)}</div><span>Workspace</span><div>${wsDot(p.ws)}</div></div>
+    <div class="small mute" style="margin:8px 0">Bot が書いた案です。保存すると指示になります。外部のアプリを使わせるかは、これとは別にカードで決めます。</div>
+    ${p.status === 'open' ? `<div class="d-foot"><button class="primary" data-act="applyProposal" data-id="${p.id}">保存</button><button data-act="discardProposal" data-id="${p.id}">破棄</button></div>` : ''}</div>`;
+}
+
+function VariantD() {
+  const w = ws(), conv = activeConv(), bots = inWs(S.bots);
+  const tiles = S.workspaces.map((x) => `<button class="d-tile ${x.id === S.activeWs ? 'on' : ''}" style="background:${x.color}" data-act="ws" data-id="${x.id}" title="${esc(x.name)}">${esc(x.name.slice(0, 1))}${pending(x.id) ? `<span class="badge">${pending(x.id)}</span>` : ''}</button>`).join('');
+  const list = inWs(S.conversations).slice().reverse().map((c) => {
+    const bs = c.botIds.map(bot);
+    const av = bs.length > 1 ? `<span class="d-avg">${avatar(bs[0], 'sm')}${avatar(bs[1], 'sm')}</span>` : avatar(bs[0]);
+    return `<div class="d-item ${conv && c.id === conv.id ? 'on' : ''}" data-act="selectConv" data-id="${c.id}">${av}<div style="min-width:0;flex:1"><div class="t">${esc(bs.length > 1 ? c.title : bs[0].name)}${convPending(c) ? '<span class="d-pdot"></span>' : ''}</div><div class="p">${esc(convPreview(c))}</div></div></div>`;
+  }).join('') || '<div class="mute small" style="padding:8px">右上の ＋ から Bot を作る</div>';
+  const apps = [...new Set(inWs(S.connections).filter((c) => c.status === 'active').map((c) => c.provider))].map((p) => `<span class="d-appicon xs ${p}">${p === 'slack' ? '#' : 'G'}</span>`).join('');
+  const picker = S.ui.picker ? `<div class="d-picker"><div class="bar">宛先: <span style="flex:1">Bot を選ぶか、新しく作る</span><button class="d-round" data-act="dPickerClose">×</button></div>
+    <div class="d-menu"><div class="d-mi" data-act="dCreateBot">＋ 新しい Bot を作成<span class="d-kbd">⌘1</span></div><div class="d-mi" data-act="dGroup" ${bots.length ? '' : 'style="opacity:.4;pointer-events:none"'}>グループチャットを作成<span class="d-kbd">⌘2</span></div>
+    ${bots.map((b, i) => `<div class="d-mi" data-act="dStartChat" data-id="${b.id}">${avatar(b, 'sm')} ${esc(b.name)}<span class="d-kbd">⌘${i + 3}</span></div>`).join('')}</div></div>` : '';
+  let center;
+  if (!conv) center = `<div class="empty">${bots.length ? '左の一覧か ＋ から会話を始める' : 'この Workspace にはまだ Bot がいません。左上の ＋ から作る'}</div>`;
+  else {
+    const head = conv.botIds.length > 1 ? `<span class="d-avg" style="width:26px;height:26px">${avatar(bot(conv.botIds[0]), 'sm')}</span>${esc(conv.title)}` : `${avatar(bot(conv.primaryBotId), 'sm')}${esc(bot(conv.primaryBotId).name)}`;
+    const msgs = S.messages.filter((m) => m.convId === conv.id).map((m) => m.from === 'human' ? `<div class="d-h">${esc(m.text)}</div>`
+      : m.from === 'bot' ? `${conv.botIds.length > 1 ? `<div class="small mute">${esc(bot(m.botId).name)}</div>` : ''}<div class="d-b">${esc(m.text)}</div>`
+      : m.ref.type === 'request' ? dAppCard(req(m.ref.id)) : m.ref.type === 'operation' ? dSlackCard(op(m.ref.id)) : dProposalCard(m.ref.id)).join('');
+    center = `<div class="d-head"><span class="wsd">${wsDot(w.id)}</span><span class="d-pill" data-act="openModal" data-type="dBot" data-bot="${conv.primaryBotId}">${head}</span></div>
+      <div class="d-msgs" id="msgs">${msgs}</div>
+      <form class="d-composer" data-act="send" data-conv="${conv.id}"><button type="button" class="d-round">＋</button><input id="composer" name="text" autocomplete="off" placeholder="${esc(conv.botIds.length > 1 ? conv.title : bot(conv.primaryBotId).name)}にメッセージ"><button class="d-round primary">↑</button></form>`;
+  }
+  return `<div class="d-layout"><nav class="d-tiles">${tiles}</nav>
+    <aside class="d-side"><div class="d-side-top"><span class="ws">${wsDot(w.id)}</span><button class="d-icon">⌕</button><button class="d-icon" data-act="dNew">＋</button></div>
+      <div class="d-list">${list}</div>
+      <div class="d-bottom"><button class="d-me">Me</button><button class="d-appsbtn" data-act="openModal" data-type="dApps">アプリを接続 ${apps}</button></div></aside>
+    <main class="d-main">${picker}${center}</main></div>`;
+}
+
+function dConnectModal(r) {
+  const b = bot(r.botId), t = SLACK[r.ws];
+  const cs = S.connections.filter((c) => c.ws === r.ws && c.provider === 'slack');
+  const step = r.status === 'open' ? (cs.some((c) => c.status === 'active') ? 2 : 1) : r.status === 'connected' ? 3 : 4;
+  const st = (n, label) => `<span class="${step === n ? 'now' : step > n ? 'done' : ''}">${n}. ${label}</span>`;
+  let body = '';
+  if (step === 1) {
+    body = `<div class="d-consent"><div class="oauth-h">slack（模擬の同意画面。本物ではない）</div><div class="oauth-b">
+      <div><b>${esc(t.app)}</b> が <b>${esc(t.team)}</b> へのアクセスを求めています。</div>
+      <div class="scopes"><div><b>Bot として</b>: chat:write, channels:read, channels:history</div><div><b>あなたとして</b>: chat:write, search:read</div></div>
+      <div class="small">1 回の同意で、Bot とあなたの 2 つの接続が ${esc(wsOf(r.ws).name)} にできます。</div>
+      <div class="row"><button data-act="oauthAllow" data-back="dConnect" data-req="${r.id}">許可する</button></div></div></div>`;
+  } else if (step === 2) {
+    body = `<div class="small mute">Slack（${esc(t.team)}）は ${esc(wsOf(r.ws).name)} で接続済みなので、同意はもう要りません。${esc(b.name)} に、Slack を誰として使わせますか。</div>${cs.map((c) => `<button class="d-opt" data-act="dPick" data-req="${r.id}" data-conn="${c.id}" ${c.status !== 'active' ? 'disabled' : ''}><span>${connLine(c)}</span><span class="hint">${identityHint(c)}</span></button>`).join('')}`;
+  } else if (step === 3) {
+    body = `<div class="pick">${connLine(conn(r.connectionId))}<button data-act="repick" data-req="${r.id}">選び直す</button></div>
+      <form data-act="dGrant" data-req="${r.id}" class="d-sec"><h4>${esc(b.name)} に許すこと（この Bot が参加するすべての会話で効く）</h4>
+      <div>投稿できる channel: ${CHANNELS.map((ch) => `<label class="chk"><input type="checkbox" name="t" value="${ch}" ${ch === r.want ? 'checked' : ''}> ${ch}</label>`).join('')}</div>
+      <div class="small mute" style="margin-top:6px">送るたびに、会話の中の Slack メッセージのカードであなたが確認します。</div>
+      <div class="row"><button class="primary">許可する</button></div></form>`;
+  } else body = '<div class="mute">この依頼は終わっています。</div>';
+  return `<div class="overlay"><div class="d-modal"><div class="d-foot"><span class="d-appicon slack">#</span><div><b>Slack を ${esc(b.name)} に使わせる</b><div class="small mute">${wsDot(r.ws)}</div></div></div>
+    <div class="d-steps">${st(1, 'Slack で同意')}${st(2, '誰として')}${st(3, 'この Bot に許す')}</div>
+    ${body}
+    <div class="row"><button data-act="closeModal">あとで</button>${step < 4 ? `<button class="danger" data-act="dDecline" data-req="${r.id}">断る</button>` : ''}</div></div></div>`;
+}
+function dAppsModal() {
+  const w = ws();
+  const block = (p, name, desc) => {
+    const i = inWs(S.installations).find((x) => x.provider === p);
+    const right = !i ? (p === 'slack' ? '<button data-act="oauth" data-back="dApps">認証</button>' : '<span class="mute small">このモックでは無し</span>')
+      : i.status !== 'active' ? '<button data-act="oauth" data-back="dApps">再接続</button>' : '<span class="d-ok">✓ 接続済み</span>';
+    const rows = i ? S.connections.filter((c) => c.installationId === i.id).map((c) => `<div class="d-connrow">${connLine(c)}<div class="small mute">${S.grants.filter((g) => g.connectionId === c.id && !g.revoked).map((g) => `${esc(bot(g.botId).name)}: ${OP_NAME[g.operation]}（${esc(g.targets.join('、'))}）`).join(' / ') || 'どの Bot にも許していない'}</div></div>`).join('') : '';
+    return `<div class="d-card" style="width:100%"><div class="d-appcard"><span class="d-appicon ${p}">${p === 'slack' ? '#' : '31'}</span><div class="meta"><b>${name}</b><div class="desc">${desc}${i ? ` · ${esc(i.team)}` : ''}</div></div>${right}</div>${rows ? `<div style="margin-top:8px">${rows}</div>` : ''}</div>`;
+  };
+  return `<div class="overlay"><div class="d-modal"><div class="d-foot"><b>アプリを接続</b><span class="r">${wsDot(w.id)}</span></div>
+    <div class="small mute">${esc(w.name)} の接続です。ほかの Workspace からは見えません。接続しただけでは Bot は使えず、Bot ごとに許可します。</div>
+    ${block('slack', 'Slack', 'メッセージの投稿と channel の読み取り')}${block('google', 'Google Calendar', '予定の確認と追加')}
+    <div class="row"><button data-act="closeModal">閉じる</button></div></div></div>`;
+}
+function dBotModal(b) {
+  const gs = grantsOf(b.id), convs = S.conversations.filter((c) => c.botIds.includes(b.id));
+  return `<div class="overlay"><div class="d-modal"><div class="d-foot">${avatar(b)}<div><b>${esc(b.name)}</b><div class="small mute">${esc(b.instruction || '（まだ設定していない）')}</div></div><span class="r">${wsDot(b.ws)}</span></div>
+    <div class="d-sec"><h4>この Bot に許していること（参加しているすべての会話で効く）</h4>${gs.map((g) => `<div class="d-connrow">${whoPill(conn(g.connectionId))} ${OP_NAME[g.operation]} · ${esc(g.targets.join('、'))} · ${g.mode === 'allow' ? '承認なし' : '毎回承認'} ${g.revoked ? '<span class="mute">取消済み</span>' : `<button class="danger" data-act="revokeGrant" data-id="${g.id}">取り消す</button>`}</div>`).join('') || '<div class="mute small">まだ何も許していない</div>'}</div>
+    <div class="d-sec"><h4>参加している会話</h4>${convs.map((c) => esc(c.direct ? '1 対 1' : c.title)).join('、')}</div>
+    <div class="row"><button data-act="closeModal">閉じる</button></div></div></div>`;
+}
+
 function modal() {
   const m = S.ui.modal;
   if (!m) return '';
+  if (m.type === 'dConnect') return dConnectModal(req(m.req));
+  if (m.type === 'dApps') return dAppsModal();
+  if (m.type === 'dBot') return dBotModal(bot(m.bot));
   const w = ws();
   if (m.type === 'addBot') {
     return `<div class="overlay"><form class="modal" data-act="addBot"><h3>Bot を追加</h3><div class="mute small">${wsChip(w.id)} に追加します。後から別の Workspace へは移せません。</div>
@@ -622,7 +903,7 @@ function modal() {
     <div class="mute small">この App は momo の ${wsChip(w.id)} Workspace 用に登録した Provider app です。</div>
     <div class="scopes"><div><b>Bot として</b>: chat:write, channels:read, channels:history</div><div><b>あなたとして</b>: chat:write, search:read</div></div>
     <div class="small">1 回の同意で、<span class="who bot">Slack Bot ${esc(t.bot)}</span> と <span class="who user">Slack User（あなた）${esc(t.user)}</span> の 2 つの接続ができます。Bot の依頼にどちらで応えるかは、この後で選びます。</div>
-    <div class="row"><button class="primary" data-act="oauthAllow">許可する</button><button data-act="closeModal">キャンセル</button></div></div></div></div>`;
+    <div class="row"><button class="primary" data-act="oauthAllow" data-back="${m.back ?? ''}" data-req="${m.req ?? ''}">許可する</button><button data-act="oauthCancel" data-back="${m.back ?? ''}" data-req="${m.req ?? ''}">キャンセル</button></div></div></div></div>`;
 }
 
 function switcher() {
@@ -665,7 +946,9 @@ function cycle(d) {
 function render() {
   const a = document.activeElement;
   const keep = a && a.id && 'value' in a ? { id: a.id, v: a.value } : null;
-  document.getElementById('app').innerHTML = { A: VariantA, B: VariantB, C: VariantC }[variant]() + modal();
+  document.getElementById('app').innerHTML = variant === 'D'
+    ? `<div class="vd">${VariantD()}${modal()}</div>`
+    : { A: VariantA, B: VariantB, C: VariantC }[variant]() + modal();
   document.getElementById('dock').innerHTML = switcher();
   document.getElementById('dbg').innerHTML = dbgPanel();
   if (keep) {
