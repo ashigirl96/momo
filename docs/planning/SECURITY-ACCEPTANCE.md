@@ -8,7 +8,7 @@
 
 守る対象はvendor access/refresh token、OAuth client secret、LLM API key、Vault/CA秘密鍵、Workspaceごとの会話・記憶・添付、正当な人の承認、外部への書き込み。
 
-攻撃者はメール/Web/リポジトリ/Slackメッセージに悪意ある内容を置ける。Botがそれに従ってsandbox内で任意コードを実行できる前提で試験する。ホストOS、trusted backend/securityd、コンテナ管理基盤はこの初期モデルでは信頼する。単なるprompt instructionや同じプロセス内のモジュール分割は攻撃者を隔離しない。
+攻撃者はメール/Web/リポジトリ/Slackメッセージに悪意ある内容を置ける。Botがそれに従ってsandbox内で任意コードを実行できる前提で試験する。ホストOS、trusted backend/securityd、コンテナ管理基盤はこの初期モデルでは信頼する。所有者と同じmacOSユーザーで動くsoftwareから会話・記憶・添付は守らない（[ADR-0004](../adr/0004-all-workspaces-share-one-macos-user.md)）。単なるprompt instructionや同じプロセス内のモジュール分割は攻撃者を隔離しない。
 
 テストfixtureは少なくとも内部Workspace 2個、各Bot 2体、会話2個、Slack team 2個、Slack Bot/User主体、Google account 2個を用意する。通常のCIは模擬providerで行い、live OAuth/API試験は明示的に用意したテスト先に限定する。
 
@@ -27,6 +27,8 @@
 - [ ] agentは管理用IPC/APIへ到達できず、自分へGrantを追加・Approvalを決裁できない。
 - [ ] 外部eventのworkspace/bot指定を信用せず、検証済みinstallationとChannel bindingから内部contextを解決する。
 - [ ] 機密URL・OAuth callback・ログのmessageに含まれるWorkspace IDを信頼する別経路が存在しない。
+- [ ] momoのデータdirは0700、DBと鍵まわりのfileは0600で、Time Machineの除外が付いている。FileVaultが無効なら起動時に警告する（[ADR-0004](../adr/0004-all-workspaces-share-one-macos-user.md)）。
+- [ ] Workspaceを削除した後、app.db・security.dbの空きページに行の中身が残らない。
 
 DBを二つに分ける、型にbrandを付ける、RLS風filterを置く、という個々の方法だけを分離の証拠にはしない。実API・検索・stream・workerの経路で否定試験を行う。
 
