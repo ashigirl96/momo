@@ -30,6 +30,10 @@ _Avoid_: default bot, owner bot
 1 つの Conversation で 1 体の Bot が途切れずに続ける、1 本のモデルの文脈。reset や Bot の指示の変更で閉じ、新しい Session に替わる。会話履歴と tool の結果はこの中に閉じる。
 _Avoid_: thread, chat session
 
+**Login**:
+所有者のブラウザが momo の UI を操作できる、認証済みの状態。Bot の Session とは別のもの。
+_Avoid_: session, web session
+
 **Run**:
 ある Session の中で 1 体の Bot が行う 1 回の実行。それを起こした主体（所有者、Channel binding 経由の外部の人、Job）を持つ。
 _Avoid_: turn, invocation, job
