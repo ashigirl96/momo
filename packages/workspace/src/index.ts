@@ -7,6 +7,7 @@ export const migrations: MigrationSource = {
 };
 
 export * from "./bots.ts";
+export * from "./conversations.ts";
 export * from "./logins.ts";
 export * from "./paging.ts";
 export * from "./scoped.ts";
