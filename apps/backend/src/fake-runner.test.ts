@@ -59,6 +59,65 @@ describe("fake runner over the Session mailbox", () => {
     expect(text(outbound).length).toBeLessThan(fakeReply("長い返事".repeat(20), []).length);
   });
 
+  test("`remember:` asks for the memory write tool in the Run, then answers with its result", async () => {
+    const { send, outbound, done } = connect(0);
+    send({ kind: "run_start", runId: "run_1", input: "remember: 朝はコーヒーを飲む", history: [] });
+    await Bun.sleep(10);
+
+    const request = outbound.find((m) => m.kind === "tool_request");
+    expect(request).toMatchObject({
+      runId: "run_1",
+      tool: { kind: "memory_write", item: { body: "朝はコーヒーを飲む", title: "朝はコーヒーを飲む" } },
+    });
+    expect(outbound.filter((m) => m.kind === "stream_delta")).toEqual([]);
+
+    send({
+      kind: "tool_result",
+      runId: "run_1",
+      requestId: request!.requestId,
+      result: { kind: "memory_written", id: "memory_1" },
+    });
+    await done;
+    expect(text(outbound)).toBe("覚えました: 朝はコーヒーを飲む");
+  });
+
+  test("`recall:` asks for the memory search tool and lists what it found", async () => {
+    const { send, outbound, done } = connect(0);
+    send({ kind: "run_start", runId: "run_1", input: "recall: コーヒー", history: [] });
+    await Bun.sleep(10);
+    const request = outbound.find((m) => m.kind === "tool_request");
+    expect(request?.tool).toEqual({ kind: "memory_search", query: "コーヒー" });
+
+    send({
+      kind: "tool_result",
+      runId: "run_1",
+      requestId: request!.requestId,
+      result: {
+        kind: "memory_found",
+        items: [
+          { id: "memory_1", type: "note", title: "朝", description: "", tags: [], body: "朝はコーヒー" },
+        ],
+      },
+    });
+    await done;
+    expect(text(outbound)).toBe("見つけた記憶:\n- 朝はコーヒー");
+  });
+
+  test("a tool error is told in the reply", async () => {
+    const { send, outbound, done } = connect(0);
+    send({ kind: "run_start", runId: "run_1", input: "recall: 何か", history: [] });
+    await Bun.sleep(10);
+    const request = outbound.find((m) => m.kind === "tool_request")!;
+    send({
+      kind: "tool_result",
+      runId: "run_1",
+      requestId: request.requestId,
+      result: { kind: "error", error: "failed", message: "down" },
+    });
+    await done;
+    expect(text(outbound)).toBe("記憶の tool が失敗しました: down");
+  });
+
   test("an inbound message that fails the wire schema is ignored", async () => {
     const { outbound } = connect(0);
     const mailbox = new SessionMailbox();
