@@ -23,6 +23,7 @@ import { existsSync, readFileSync } from "node:fs";
 import {
   deleteMemoryItem,
   detachMemoryFromConversation,
+  fullTextCandidates,
   getMemoryItem,
   listMemoryItems,
   searchMemoryItems,
@@ -229,6 +230,20 @@ describe("searching Memory items", () => {
     expect(titles(b, "合言葉")).toEqual(["共通の合言葉はさくら B"]);
     expect(searchMemoryItems(db(), a.tenant, b.bot.id, "合言葉")).toEqual([]);
     expect(searchMemoryItems(db(), b.tenant, a.bot.id, "合言葉")).toEqual([]);
+  });
+
+  test("the full-text index yields only the Bot's own items as candidates", () => {
+    const own = write(a, "共通の合言葉はさくら")!;
+    write(b, "共通の合言葉はさくら B");
+    writeMemoryItem(db(), a.tenant, {
+      runId: runningRun(a.tenant, a.other).id,
+      item: draft("共通の合言葉はさくら 別の Bot"),
+      now,
+    });
+
+    expect(fullTextCandidates(db(), a.tenant, a.bot.id, ["合言葉"])).toEqual([own.id]);
+    expect(fullTextCandidates(db(), a.tenant, a.bot.id, [a.other.id])).toEqual([]);
+    expect(fullTextCandidates(db(), a.tenant, a.bot.id, [b.tenant.workspaceId])).toEqual([]);
   });
 });
 

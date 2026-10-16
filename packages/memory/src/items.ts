@@ -101,23 +101,26 @@ function containsTerm(term: string): SQL {
   )!;
 }
 
-/**
- * Full-text search over one Bot's Memory items. Every term must match. The query is limited to
- * `(workspace_id, bot_id)` inside SQL, the full-text part included, so no other Bot's item is a
- * candidate.
- */
+const botKey = (tenant: TenantContext, botId: string) => `<${tenant.workspaceId}/${botId}>`;
+
+/** The Bot's key sits inside the MATCH expression so the index itself never yields another Bot's rows. */
+function candidateIds(tenant: TenantContext, botId: string, terms: string[]): SQL {
+  const match = `bot_key : ${ftsPhrase(botKey(tenant, botId))} AND {title description tags body} : (${terms.map(ftsPhrase).join(" AND ")})`;
+  return sql`SELECT item_id FROM memory_fts WHERE memory_fts MATCH ${match}`;
+}
+
+export function fullTextCandidates(db: Db, tenant: TenantContext, botId: string, terms: string[]): string[] {
+  return db.all<{ item_id: string }>(candidateIds(tenant, botId, terms)).map((row) => row.item_id);
+}
+
+/** Full-text search over one Bot's Memory items; every term must match. */
 export function searchMemoryItems(db: Db, tenant: TenantContext, botId: string, query: string): MemoryRow[] {
   const terms = [...new Set(query.trim().split(/\s+/).filter(Boolean))].slice(0, SEARCH_TERMS_MAX);
   if (terms.length === 0) return [];
   const long = terms.filter((term) => Array.from(term).length >= TRIGRAM);
   const short = terms.filter((term) => Array.from(term).length < TRIGRAM);
   const conditions: (SQL | undefined)[] = [inTenant(memoryItems, tenant), eq(memoryItems.botId, botId)];
-  if (long.length > 0) {
-    const match = long.map(ftsPhrase).join(" AND ");
-    conditions.push(
-      sql`${memoryItems.id} IN (SELECT item_id FROM memory_fts WHERE memory_fts MATCH ${match} AND workspace_id = ${tenant.workspaceId} AND bot_id = ${botId})`,
-    );
-  }
+  if (long.length > 0) conditions.push(sql`${memoryItems.id} IN (${candidateIds(tenant, botId, long)})`);
   conditions.push(...short.map(containsTerm));
   return db
     .select()
