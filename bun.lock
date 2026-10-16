@@ -56,11 +56,15 @@
     "packages/agent": {
       "name": "@momo/agent",
       "dependencies": {
+        "@momo/migrator": "workspace:*",
         "drizzle-orm": "1.0.0-rc.4",
       },
     },
     "packages/connections": {
       "name": "@momo/connections",
+      "dependencies": {
+        "@momo/migrator": "workspace:*",
+      },
     },
     "packages/contracts": {
       "name": "@momo/contracts",
@@ -71,15 +75,20 @@
     "packages/memory": {
       "name": "@momo/memory",
       "dependencies": {
+        "@momo/migrator": "workspace:*",
         "drizzle-orm": "1.0.0-rc.4",
       },
     },
     "packages/migrator": {
       "name": "@momo/migrator",
+      "dependencies": {
+        "drizzle-orm": "1.0.0-rc.4",
+      },
     },
     "packages/workspace": {
       "name": "@momo/workspace",
       "dependencies": {
+        "@momo/migrator": "workspace:*",
         "drizzle-orm": "1.0.0-rc.4",
       },
     },

@@ -3,6 +3,8 @@ import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
+export { openDatabase, type Db } from "./database.ts";
+
 export type MigrationSource = {
   domain: string;
   dir: string;
