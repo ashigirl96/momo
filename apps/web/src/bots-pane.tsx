@@ -14,6 +14,7 @@ import { BotSettingsCard, SaveDiscard, type CardSettings, type CardStatus } from
 import { BotBubble, ChatFrame, Composer, HumanBubble, useAlive } from "@/chat-parts";
 import { ConversationView } from "@/conversation-view";
 import { cn } from "@/lib/utils";
+import { MemoryList } from "@/memory-list";
 
 type Selection =
   | { kind: "none" }
@@ -136,6 +137,7 @@ export function BotsPane({ workspace }: { workspace: WorkspaceItem }) {
             bot={selectedBot}
             onChanged={changed}
             onBack={() => setSelection({ kind: "conversation", id: selection.from })}
+            onOpenConversation={(id) => setSelection({ kind: "conversation", id })}
           />
         ) : (
           conversations && (
@@ -261,6 +263,7 @@ function BotSettingsView(props: {
   bot: BotItem;
   onChanged: (bot: BotItem) => void;
   onBack: () => void;
+  onOpenConversation: (id: string) => void;
 }) {
   const [settings, setSettings] = useState<CardSettings>({ model: props.bot.model, tools: props.bot.tools });
   const [busy, setBusy] = useState(false);
@@ -300,6 +303,7 @@ function BotSettingsView(props: {
         actions={dirty && <SaveDiscard busy={busy} onSave={save} saveLabel="変更を保存" />}
       />
       {failed && <p className="text-destructive text-sm">保存できませんでした。</p>}
+      <MemoryList workspace={props.workspace} bot={props.bot} onOpenConversation={props.onOpenConversation} />
     </ChatFrame>
   );
 }

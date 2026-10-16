@@ -6,21 +6,29 @@
  */
 import { z } from "zod";
 import { BotSettingsProposal } from "./bots.ts";
+import { MEMORY_QUERY_MAX, MemoryHit, MemoryItemDraft } from "./memory.ts";
 
 const id = z.string().min(1).max(200);
 
-/** What a runner asks the backend to do. #44 adds the memory tool here. */
+/** What a runner asks the backend to do. The memory tools act on the Bot of the Run they arrive in. */
 export const ToolRequest = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("propose_bot_settings"), proposal: BotSettingsProposal }),
+  z.strictObject({ kind: z.literal("memory_write"), item: MemoryItemDraft }),
+  z.strictObject({
+    kind: z.literal("memory_search"),
+    query: z.string().trim().min(1).max(MEMORY_QUERY_MAX),
+  }),
 ]);
 export type ToolRequest = z.infer<typeof ToolRequest>;
 
 export const ToolErrorKind = z.enum(["not_in_run", "invalid_request", "failed"]);
 export type ToolErrorKind = z.infer<typeof ToolErrorKind>;
 
-/** What the backend answers a tool request with. #44 adds the memory tool's results here. */
+/** What the backend answers a tool request with. */
 export const ToolResult = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("error"), error: ToolErrorKind, message: z.string() }),
+  z.strictObject({ kind: z.literal("memory_written"), id }),
+  z.strictObject({ kind: z.literal("memory_found"), items: z.array(MemoryHit) }),
 ]);
 export type ToolResult = z.infer<typeof ToolResult>;
 

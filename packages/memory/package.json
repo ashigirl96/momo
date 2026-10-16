@@ -6,7 +6,10 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@momo/agent": "workspace:*",
+    "@momo/contracts": "workspace:*",
     "@momo/migrator": "workspace:*",
+    "@momo/workspace": "workspace:*",
     "drizzle-orm": "1.0.0-rc.4"
   }
 }

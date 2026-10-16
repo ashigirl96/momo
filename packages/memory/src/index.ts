@@ -5,3 +5,14 @@ export const migrations: MigrationSource = {
   domain: "memory",
   dir: fileURLToPath(new URL("../migrations", import.meta.url)),
 };
+
+export {
+  deleteMemoryItem,
+  detachMemoryFromConversation,
+  getMemoryItem,
+  listMemoryItems,
+  searchMemoryItems,
+  writeMemoryItem,
+  type MemoryRecord,
+  type MemoryRow,
+} from "./items.ts";
