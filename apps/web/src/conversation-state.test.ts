@@ -7,6 +7,7 @@ const owner: MessageItem = {
   conversationId: "conversation_1",
   author: { kind: "owner" },
   text: "こんにちは",
+  attachments: [],
   createdAt: 1,
 };
 const reply: MessageItem = {
@@ -14,6 +15,7 @@ const reply: MessageItem = {
   conversationId: "conversation_1",
   author: { kind: "bot", botId: "bot_1", runId: "run_1" },
   text: "**返事**",
+  attachments: [],
   createdAt: 2,
 };
 

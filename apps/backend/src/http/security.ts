@@ -10,6 +10,15 @@ export const CONTENT_SECURITY_POLICY = [
   "frame-ancestors 'none'",
 ].join("; ");
 
+/** For Attachment bytes: no scripts, an opaque origin, no loads, framed only by the momo UI. */
+export const ATTACHMENT_CONTENT_SECURITY_POLICY = [
+  "sandbox",
+  "default-src 'none'",
+  "img-src data:",
+  "style-src 'unsafe-inline'",
+  "frame-ancestors 'self'",
+].join("; ");
+
 const SECURITY_HEADERS: Record<string, string> = {
   "content-security-policy": CONTENT_SECURITY_POLICY,
   "x-content-type-options": "nosniff",
@@ -19,8 +28,18 @@ const SECURITY_HEADERS: Record<string, string> = {
   "cross-origin-resource-policy": "same-origin",
 };
 
+/** Only the Attachment response replaces these two, and only with the sandbox policy above. */
+const FRAMEABLE = new Map([
+  ["content-security-policy", ATTACHMENT_CONTENT_SECURITY_POLICY],
+  ["x-frame-options", "SAMEORIGIN"],
+]);
+
 export function withSecurityHeaders(res: Response): Response {
-  for (const [name, value] of Object.entries(SECURITY_HEADERS)) res.headers.set(name, value);
+  const framed = [...FRAMEABLE].every(([name, value]) => res.headers.get(name) === value);
+  for (const [name, value] of Object.entries(SECURITY_HEADERS)) {
+    if (framed && FRAMEABLE.has(name)) continue;
+    res.headers.set(name, value);
+  }
   return res;
 }
 

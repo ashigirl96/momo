@@ -31,7 +31,8 @@ async function request<T>(
   const res = await fetch(path, {
     ...init,
     credentials: "same-origin",
-    headers: init.body ? { "content-type": "application/json" } : undefined,
+    // A FormData body gets its multipart content type from fetch.
+    headers: typeof init.body === "string" ? { "content-type": "application/json" } : undefined,
   });
   if (res.status === 401) throw new Unauthenticated();
   if (res.status === 404) throw new NotFound();
@@ -81,6 +82,17 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  postMessageWithFiles: (workspaceId: string, conversationId: string, text: string, files: File[]) => {
+    const form = new FormData();
+    form.set("text", text);
+    for (const file of files) form.append("file", file);
+    return request(`${conversation(workspaceId, conversationId)}/messages`, PostMessageResponse, {
+      method: "POST",
+      body: form,
+    });
+  },
+  attachmentUrl: (workspaceId: string, conversationId: string, attachmentId: string) =>
+    `${conversation(workspaceId, conversationId)}/attachments/${encodeURIComponent(attachmentId)}`,
   /** The browser resumes with `Last-Event-ID` on its own; `after` only sets the first connect. */
   conversationEvents: (workspaceId: string, conversationId: string, after: number) =>
     new EventSource(`${conversation(workspaceId, conversationId)}/events?after=${after}`),

@@ -19,6 +19,8 @@ export type CallInit = {
   method?: string;
   cookie?: string;
   body?: unknown;
+  /** A multipart body; fetch sets its content type. */
+  form?: FormData;
   headers?: Record<string, string | undefined>;
 };
 
@@ -51,7 +53,7 @@ export async function startTestBackend(overrides: Partial<BackendOptions> = {}):
     return fetch(`http://127.0.0.1:${backend.port}${path}`, {
       method,
       headers,
-      body: init.body === undefined ? undefined : JSON.stringify(init.body),
+      body: init.form ?? (init.body === undefined ? undefined : JSON.stringify(init.body)),
       redirect: "manual",
     });
   };
