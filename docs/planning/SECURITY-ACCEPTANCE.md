@@ -94,7 +94,7 @@ unknown operation / ambiguous request                   → deny
 
 ### 承認で固定するもの
 
-正規化した操作payloadのdigestに、internal Workspace、Bot、Run、Connection、credential kind、外部subject、operation、resource、本文/宛先、失効時刻、関係する権限versionを含める。許可に影響する引数を承認画面から省略しない。
+正規化した操作payloadのdigestに、internal Workspace、Bot、Run、Connection、credential kind、外部subject、Operation kind、catalogの版、resource、本文/宛先、失効時刻、カードに出した表示の行を含める。権限のversionはdigestに入れず、dispatch直前の再評価で扱う。許可に影響する引数を承認画面から省略しない。
 
 - [ ] OAuth同意、Bot Grant、一回承認、SDK tool permissionを別の状態/イベントとして扱う。
 - [ ] Bot自身が自分のApprovalを承認できない。「承認します」という外部メールも決裁にならない。

@@ -73,7 +73,7 @@ Connection が外部 service を誰として操作するか。Slack Bot、Slack 
 _Avoid_: token type
 
 **Grant**:
-Bot が、ある Connection のどの操作をどの対象に使えるかの許可。その Bot が参加するすべての Conversation で効く。Connection があっても Grant が無ければ使えない。
+Bot が、ある Connection のどの Operation kind をどの対象に使えるかの許可。その Bot が参加するすべての Conversation で効く。Connection があっても Grant が無ければ使えない。
 _Avoid_: permission, scope
 
 **ConnectionRequest**:
@@ -83,3 +83,17 @@ _Avoid_: auth request, connection prompt
 **Model credential**:
 Bot がモデルとの通信に使う資格情報。Workspace に属し、その Workspace の Bot すべてが使う。
 _Avoid_: API key
+
+### 操作と承認
+
+**Operation**:
+Run の中で Bot が 1 つの Connection を使って外部 service に出す、1 回の要求。読み取りも書き込みも含み、モデルとの通信と資格情報を付けない Web への通信は含まない。作った後は内容が変わらず、内容を変えれば別の Operation になる。
+_Avoid_: request, action, tool call
+
+**Operation kind**:
+momo が定める外部操作の種類。Slack への投稿やメールの送信がこれに当たる。Grant と承認の要否は、宛先の host や URL ではなくこれに対して決まる。
+_Avoid_: endpoint, API, host
+
+**Approval**:
+所有者が 1 つの Operation に下す、一回限りの許可。その Operation の内容に固定され、期限があり、1 回しか使えない。承認待ちは Approval ではなく、Operation の状態のこと。
+_Avoid_: consent, authorization, permission
