@@ -9,7 +9,7 @@ export class PortInUseError extends Error {
     readonly holder: string | undefined,
   ) {
     super(
-      `port ${port} is in use${holder ? ` by ${holder}` : ""}. momo needs this port to keep its origin; stop that process or set MOMO_PORT.`,
+      `port ${port} is in use${holder ? ` by ${holder}` : ""}. momo needs this port to keep its origin; stop that process.`,
     );
     this.name = "PortInUseError";
   }

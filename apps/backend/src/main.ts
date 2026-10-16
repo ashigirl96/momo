@@ -5,10 +5,9 @@ import { startBackend } from "./backend.ts";
 import { PortInUseError } from "./listen.ts";
 
 const dataDir = process.env.MOMO_DATA_DIR ?? defaultDataDir(homedir());
-const port = process.env.MOMO_PORT ? Number(process.env.MOMO_PORT) : DEFAULT_PORT;
 
 try {
-  const backend = await startBackend({ dataDir, port });
+  const backend = await startBackend({ dataDir, port: DEFAULT_PORT });
   console.log(`momo backend on ${backend.origin} (data: ${dataDir})`);
   if (backend.warnings.some((w) => w.kind === "filevault_off")) {
     console.warn("warning: FileVault is off, so app.db is not encrypted at rest.");
