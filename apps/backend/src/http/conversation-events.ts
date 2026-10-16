@@ -1,6 +1,6 @@
 import { eventsAfter, streamAfter } from "@momo/agent";
 import { getConversation, type TenantContext } from "@momo/workspace";
-import type { ConversationApiContext } from "./conversations.ts";
+import type { RouteContext } from "./route.ts";
 import { apiError } from "./respond.ts";
 import type { TenantRequest } from "./workspaces.ts";
 
@@ -20,7 +20,7 @@ function parseEventId(value: string | null): number | undefined | "invalid" {
 export function conversationEvents(
   { req, server, tenant, reauthorize }: TenantRequest,
   conversationId: string,
-  ctx: ConversationApiContext,
+  ctx: RouteContext,
 ): Response {
   const resumed = parseEventId(req.headers.get("last-event-id"));
   const first = parseEventId(new URL(req.url).searchParams.get("after"));

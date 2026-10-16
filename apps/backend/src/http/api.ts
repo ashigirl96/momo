@@ -2,12 +2,12 @@ import { PairRequest, type LoginItem, type LoginList, type Status, type Warning 
 import { authenticateLogin, createLogin, listLogins, revokeLogin, type LoginSummary } from "@momo/workspace";
 import type { Server } from "bun";
 import type { PairingTokens } from "../pairing.ts";
-import type { ConversationApiContext } from "./conversations.ts";
+import { decode, type RouteContext } from "./route.ts";
 import { clearedLoginCookie, loginCookie, readLoginToken } from "./login-cookie.ts";
 import { apiError, json, noContent } from "./respond.ts";
 import { workspaceRoute } from "./workspaces.ts";
 
-export type ApiContext = ConversationApiContext & {
+export type ApiContext = RouteContext & {
   pairing: PairingTokens;
   warnings: Warning[];
 };
@@ -28,7 +28,7 @@ async function readJson(req: Request): Promise<unknown> {
   }
 }
 
-function toItem(login: LoginSummary, currentId: string): LoginItem {
+function toLoginItem(login: LoginSummary, currentId: string): LoginItem {
   return {
     id: login.id,
     userAgent: login.userAgent,
@@ -62,13 +62,13 @@ async function authedRoute(
     return json({ loginId: login.id, warnings: ctx.warnings } satisfies Status);
   }
   if (path === "/api/logins" && req.method === "GET") {
-    const logins = listLogins(ctx.db, ctx.now()).map((l) => toItem(l, login.id));
+    const logins = listLogins(ctx.db, ctx.now()).map((l) => toLoginItem(l, login.id));
     return json({ logins } satisfies LoginList);
   }
   const revoke = /^\/api\/logins\/([^/]+)$/.exec(path);
   if (revoke && req.method === "DELETE") {
-    const id = decodeURIComponent(revoke[1]!);
-    if (!revokeLogin(ctx.db, id)) return apiError("not_found", "no such Login");
+    const id = decode(revoke[1]!);
+    if (id === undefined || !revokeLogin(ctx.db, id)) return apiError("not_found", "no such Login");
     return noContent(id === login.id ? { "set-cookie": clearedLoginCookie() } : undefined);
   }
   return apiError("not_found", "no such API");

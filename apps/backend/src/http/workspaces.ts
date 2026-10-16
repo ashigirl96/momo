@@ -1,5 +1,4 @@
 import { CreateWorkspaceRequest, type WorkspaceItem, type WorkspaceList } from "@momo/contracts";
-import type { Db } from "@momo/migrator";
 import {
   createWorkspace,
   listWorkspaces,
@@ -10,12 +9,11 @@ import {
 } from "@momo/workspace";
 import type { Server } from "bun";
 import { botRoute } from "./bots.ts";
-import { conversationRoute, type ConversationApiContext } from "./conversations.ts";
+import { conversationRoute } from "./conversations.ts";
 import { deletionRoute } from "./deletion.ts";
 import { memoryRoute } from "./memory.ts";
 import { apiError, json } from "./respond.ts";
-
-export type WorkspaceApiContext = ConversationApiContext & { db: Db; now: () => Date };
+import { decode, type RouteContext } from "./route.ts";
 
 type AuthedRequest = {
   req: Request;
@@ -39,30 +37,22 @@ export type TenantRequest = {
 
 const SCOPED = /^\/api\/workspaces\/([^/]+)(\/.*)?$/;
 
-function toItem(workspace: Workspace): WorkspaceItem {
+function toWorkspaceItem(workspace: Workspace): WorkspaceItem {
   return { id: workspace.id, name: workspace.name, createdAt: workspace.createdAt.getTime() };
-}
-
-function decode(segment: string): string | undefined {
-  try {
-    return decodeURIComponent(segment);
-  } catch {
-    return undefined;
-  }
 }
 
 /** Routes the Workspace API; undefined means the path is not one of ours. */
 export async function workspaceRoute(
   { req, server, path, login, stillLoggedIn, body }: AuthedRequest,
-  ctx: WorkspaceApiContext,
+  ctx: RouteContext,
 ): Promise<Response | undefined> {
   if (path === "/api/workspaces") {
     if (req.method === "GET")
-      return json({ workspaces: listWorkspaces(ctx.db).map(toItem) } satisfies WorkspaceList);
+      return json({ workspaces: listWorkspaces(ctx.db).map(toWorkspaceItem) } satisfies WorkspaceList);
     if (req.method === "POST") {
       const input = CreateWorkspaceRequest.safeParse(await body());
       if (!input.success) return apiError("bad_request", "expected { name } of 1–50 characters");
-      return json(toItem(createWorkspace(ctx.db, { name: input.data.name, now: ctx.now() })), {
+      return json(toWorkspaceItem(createWorkspace(ctx.db, { name: input.data.name, now: ctx.now() })), {
         status: 201,
       });
     }
@@ -83,8 +73,9 @@ export async function workspaceRoute(
   return tenantRoute({ req, server, rest: scoped[2] ?? "", tenant, reauthorize, body }, ctx);
 }
 
-async function tenantRoute(request: TenantRequest, ctx: WorkspaceApiContext): Promise<Response | undefined> {
-  if (request.rest === "" && request.req.method === "GET") return json(toItem(request.tenant.workspace));
+async function tenantRoute(request: TenantRequest, ctx: RouteContext): Promise<Response | undefined> {
+  if (request.rest === "" && request.req.method === "GET")
+    return json(toWorkspaceItem(request.tenant.workspace));
   return (
     (await conversationRoute(request, ctx)) ??
     memoryRoute(request, ctx) ??

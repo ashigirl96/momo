@@ -7,22 +7,14 @@ import {
   previewWorkspaceDeletion,
   type Deletion,
 } from "../deletion.ts";
-import type { ConversationApiContext } from "./conversations.ts";
 import { apiError, json, noContent } from "./respond.ts";
+import { decode, type RouteContext } from "./route.ts";
 import type { TenantRequest } from "./workspaces.ts";
 
 const BOT = /^\/bots\/([^/]+)(\/deletion-preview)?$/;
 
-function decode(segment: string): string | undefined {
-  try {
-    return decodeURIComponent(segment);
-  } catch {
-    return undefined;
-  }
-}
-
 /** Stops the runner on the deleted Runs and wakes the deleted Conversations' streams to close. */
-function settle(ctx: ConversationApiContext, tenant: TenantContext, deletion: Deletion): Response {
+function settle(ctx: RouteContext, tenant: TenantContext, deletion: Deletion): Response {
   ctx.runs.stopCancelled(deletion.runningRunIds);
   for (const id of deletion.conversationIds) ctx.hub.notify(tenant.workspaceId, id);
   return noContent();
@@ -32,10 +24,7 @@ function settle(ctx: ConversationApiContext, tenant: TenantContext, deletion: De
  * Routes `DELETE /api/workspaces/:id`, `DELETE …/bots/:botId` and their `GET …/deletion-preview`;
  * undefined means the path is not one of ours.
  */
-export function deletionRoute(
-  { req, rest, tenant }: TenantRequest,
-  ctx: ConversationApiContext,
-): Response | undefined {
+export function deletionRoute({ req, rest, tenant }: TenantRequest, ctx: RouteContext): Response | undefined {
   if (rest === "" && req.method === "DELETE")
     return settle(ctx, tenant, deleteWorkspaceEverywhere(ctx.db, ctx.attachments, tenant));
   if (rest === "/deletion-preview" && req.method === "GET")

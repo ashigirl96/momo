@@ -1,13 +1,12 @@
 import {
   RunnerOutbound,
-  type MemoryHit,
   type RunnerInbound,
   type RunOutcome,
   type ToolRequest,
   type ToolResult,
 } from "@momo/contracts";
 import { appendRunDelta, cancelRun, finishRun, startNextRun, type Run } from "@momo/agent";
-import { searchMemoryItems, writeMemoryItem, type MemoryRow } from "@momo/memory";
+import { searchMemoryItems, toMemoryHit, writeMemoryItem } from "@momo/memory";
 import type { Db } from "@momo/migrator";
 import { failInterruptedRuns } from "@momo/agent/startup";
 import { resolveTenant, type TenantContext } from "@momo/workspace";
@@ -21,16 +20,6 @@ type SessionSlot = {
   mailbox: SessionMailbox;
   running?: RunningRun;
 };
-
-const toHit = (item: MemoryRow): MemoryHit => ({
-  id: item.id,
-  type: item.type,
-  title: item.title,
-  description: item.description,
-  tags: item.tags,
-  ...(item.resource === null ? {} : { resource: item.resource }),
-  body: item.body,
-});
 
 /** Runs a tool for the Run the mailbox is running; its Bot and Workspace come from that Run. */
 function runTool(
@@ -50,7 +39,7 @@ function runTool(
     if (tool.kind === "memory_search")
       return {
         kind: "memory_found",
-        items: searchMemoryItems(db, tenant, running.botId, tool.query).map(toHit),
+        items: searchMemoryItems(db, tenant, running.botId, tool.query).map(toMemoryHit),
       };
     return { kind: "error", error: "invalid_request", message: "this tool is not available in a Run" };
   } catch (error) {

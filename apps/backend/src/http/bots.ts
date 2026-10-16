@@ -9,19 +9,15 @@ import {
   type UpdateBotResponse,
 } from "@momo/contracts";
 import { updateBotSettings } from "@momo/agent";
-import type { Db } from "@momo/migrator";
-import { createBot, getBot, InvalidCursor, listBots, type Bot } from "@momo/workspace";
-import type { ConversationHub } from "../conversation-hub.ts";
+import { createBot, getBot, listBots, type Bot } from "@momo/workspace";
 import { proposeBotSettings } from "../fake-runner.ts";
-import type { RunLoop } from "../run-loop.ts";
 import { apiError, json } from "./respond.ts";
+import { decode, listQuery, paged, type RouteContext } from "./route.ts";
 import type { TenantRequest } from "./workspaces.ts";
-
-type BotApiContext = { db: Db; now: () => Date; runs: RunLoop; hub: ConversationHub };
 
 const BOT = /^\/bots\/([^/]+)$/;
 
-function toItem(bot: Bot): BotItem {
+function toBotItem(bot: Bot): BotItem {
   return {
     id: bot.id,
     name: bot.name,
@@ -43,25 +39,10 @@ function proposalFrom(messages: unknown[]): BotSettingsProposal | undefined {
   return undefined;
 }
 
-function decode(segment: string): string | undefined {
-  try {
-    return decodeURIComponent(segment);
-  } catch {
-    return undefined;
-  }
-}
-
-function listQuery(req: Request): { cursor?: string; limit?: number } {
-  const query = new URL(req.url).searchParams;
-  const cursor = query.get("cursor") ?? undefined;
-  const limit = query.has("limit") ? Number(query.get("limit")) : undefined;
-  return { cursor, limit };
-}
-
 /** Routes `/api/workspaces/:workspaceId/bots…`; undefined means the path is not one of ours. */
 export async function botRoute(
   { req, rest, tenant, body }: TenantRequest,
-  ctx: BotApiContext,
+  ctx: RouteContext,
 ): Promise<Response | undefined> {
   if (rest === "/bot-proposals" && req.method === "POST") {
     const input = ProposeBotRequest.safeParse(await body());
@@ -73,18 +54,15 @@ export async function botRoute(
 
   if (rest === "/bots") {
     if (req.method === "GET") {
-      try {
+      return paged(() => {
         const page = listBots(ctx.db, tenant, listQuery(req));
-        return json({ bots: page.items.map(toItem), nextCursor: page.nextCursor } satisfies BotList);
-      } catch (error) {
-        if (error instanceof InvalidCursor) return apiError("bad_request", "invalid cursor");
-        throw error;
-      }
+        return json({ bots: page.items.map(toBotItem), nextCursor: page.nextCursor } satisfies BotList);
+      });
     }
     if (req.method === "POST") {
       const input = CreateBotRequest.safeParse(await body());
       if (!input.success) return apiError("bad_request", "expected { name, instructions, model, tools }");
-      return json(toItem(createBot(ctx.db, tenant, { ...input.data, now: ctx.now() })), { status: 201 });
+      return json(toBotItem(createBot(ctx.db, tenant, { ...input.data, now: ctx.now() })), { status: 201 });
     }
     return undefined;
   }
@@ -95,7 +73,7 @@ export async function botRoute(
   if (id === undefined) return apiError("not_found", "no such Bot");
   if (req.method === "GET") {
     const bot = getBot(ctx.db, tenant, id);
-    return bot ? json(toItem(bot)) : apiError("not_found", "no such Bot");
+    return bot ? json(toBotItem(bot)) : apiError("not_found", "no such Bot");
   }
   if (req.method === "PATCH") {
     const input = UpdateBotRequest.safeParse(await body());
@@ -106,7 +84,7 @@ export async function botRoute(
     ctx.runs.stopCancelled(updated.cancelledRunning);
     for (const session of updated.closed) ctx.hub.notify(tenant.workspaceId, session.conversationId);
     return json({
-      bot: toItem(updated.bot),
+      bot: toBotItem(updated.bot),
       sessionsRenewed: updated.instructionsChanged,
       closedSessions: updated.closed.length,
     } satisfies UpdateBotResponse);

@@ -18,70 +18,32 @@ import {
   toMessageItem,
   toRunItem,
   toSessionItem,
-  type AttachmentFiles,
 } from "@momo/agent";
-import type { Db } from "@momo/migrator";
 import {
   createConversation,
   getConversation,
-  InvalidCursor,
   listConversations,
   type ConversationSummary,
 } from "@momo/workspace";
-import type { ConversationHub } from "../conversation-hub.ts";
-import type { RunLoop } from "../run-loop.ts";
 import { attachmentResponse, readPostedMessage } from "./attachments.ts";
 import { conversationEvents } from "./conversation-events.ts";
 import { apiError, json } from "./respond.ts";
+import { decode, listQuery, paged, type RouteContext } from "./route.ts";
 import type { TenantRequest } from "./workspaces.ts";
-
-export type ConversationApiContext = {
-  db: Db;
-  now: () => Date;
-  runs: RunLoop;
-  hub: ConversationHub;
-  attachments: AttachmentFiles;
-  /** How often an open stream re-checks its Login and Workspace. */
-  streamCheckMs: number;
-};
 
 const CONVERSATION = /^\/conversations\/([^/]+)(\/messages|\/events|\/reset)?$/;
 const CONVERSATION_ATTACHMENT = /^\/conversations\/([^/]+)(\/attachments\/[^/]+)$/;
 const RUN = /^\/runs\/([^/]+)(\/cancel)?$/;
 const ATTACHMENT = /^\/attachments\/([^/]+)$/;
 
-function toItem(c: ConversationSummary): ConversationItem {
+function toConversationItem(c: ConversationSummary): ConversationItem {
   return { id: c.id, primaryBotId: c.primaryBotId, createdAt: c.createdAt.getTime() };
-}
-
-function decode(segment: string): string | undefined {
-  try {
-    return decodeURIComponent(segment);
-  } catch {
-    return undefined;
-  }
-}
-
-function listQuery(req: Request): { cursor?: string; limit?: number } {
-  const query = new URL(req.url).searchParams;
-  const cursor = query.get("cursor") ?? undefined;
-  const limit = query.has("limit") ? Number(query.get("limit")) : undefined;
-  return { cursor, limit };
-}
-
-function paged(read: () => Response): Response {
-  try {
-    return read();
-  } catch (error) {
-    if (error instanceof InvalidCursor) return apiError("bad_request", "invalid cursor");
-    throw error;
-  }
 }
 
 /** Routes `/api/workspaces/:workspaceId/{conversations,runs}…`; undefined means not one of ours. */
 export async function conversationRoute(
   request: TenantRequest,
-  ctx: ConversationApiContext,
+  ctx: RouteContext,
 ): Promise<Response | undefined> {
   const { req, rest, tenant, body } = request;
 
@@ -90,7 +52,7 @@ export async function conversationRoute(
       return paged(() => {
         const page = listConversations(ctx.db, tenant, listQuery(req));
         return json({
-          conversations: page.items.map(toItem),
+          conversations: page.items.map(toConversationItem),
           nextCursor: page.nextCursor,
         } satisfies ConversationList);
       });
@@ -99,7 +61,7 @@ export async function conversationRoute(
       if (!input.success) return apiError("bad_request", "expected { primaryBotId }");
       const conversation = createConversation(ctx.db, tenant, { ...input.data, now: ctx.now() });
       if (!conversation) return apiError("not_found", "no such Bot");
-      return json(toItem(conversation), { status: 201 });
+      return json(toConversationItem(conversation), { status: 201 });
     }
     return undefined;
   }
@@ -139,7 +101,7 @@ export async function conversationRoute(
 
   if (sub === undefined && req.method === "GET")
     return json({
-      ...toItem(conversation),
+      ...toConversationItem(conversation),
       participants: conversation.participants,
     } satisfies ConversationDetail);
 
