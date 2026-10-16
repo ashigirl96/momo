@@ -321,7 +321,8 @@ describe("startup", () => {
     expect(status.warnings).toEqual([{ kind: "filevault_off" }]);
   });
 
-  test.skipIf(process.platform !== "darwin")(
+  // CI runners may lack a working tmutil; the probe is exercised on the owner's Mac.
+  test.skipIf(process.platform !== "darwin" || Boolean(process.env.CI))(
     "excludes the data dir from Time Machine",
     async () => {
       const dataDir = join(mkdtempSync(join(tmpdir(), "momo-")), "data");
