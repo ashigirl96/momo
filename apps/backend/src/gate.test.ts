@@ -302,6 +302,63 @@ describe("2 Workspaces × 2 Bots × 2 Conversations: no id crosses", () => {
     }
   });
 
+  test("every route of the fixture refuses a request without a Login, from another site or with another Host", async () => {
+    const before = await snapshot();
+    const w = f.workspaces[0]!;
+    const bot = w.bots[0]!;
+    const c = bot.conversations[0]!;
+    const reads = [
+      w.path,
+      `${w.path}/bots`,
+      `${w.path}/bots/${bot.id}`,
+      `${w.path}/bots/${bot.id}/memory`,
+      `${w.path}/bots/${bot.id}/memory/${bot.memoryItemIds[0]}`,
+      `${w.path}/bots/${bot.id}/deletion-preview`,
+      `${w.path}/deletion-preview`,
+      `${w.path}/conversations`,
+      c.base,
+      `${c.base}/messages`,
+      `${c.base}/events?after=0`,
+      `${c.base}/attachments/${c.attachmentId}`,
+      `${w.path}/runs/${c.runIds[0]}`,
+    ].map((path) => ({ path, method: "GET" }));
+    const writes = [
+      { path: `${c.base}/messages`, method: "POST", body: { text: "乗っ取り" } },
+      { path: `${c.base}/reset`, method: "POST" },
+      { path: `${w.path}/runs/${c.runIds[0]}/cancel`, method: "POST" },
+      { path: `${w.path}/conversations`, method: "POST", body: { primaryBotId: bot.id } },
+      {
+        path: `${w.path}/bots`,
+        method: "POST",
+        body: { name: "x", instructions: "x", model: "sonnet", tools: [] },
+      },
+      { path: `${w.path}/bots/${bot.id}`, method: "PATCH", body: { name: "乗っ取り" } },
+      { path: `${w.path}/bots/${bot.id}/memory/${bot.memoryItemIds[0]}`, method: "DELETE" },
+      { path: `${w.path}/bots/${bot.id}`, method: "DELETE" },
+      { path: w.path, method: "DELETE" },
+    ];
+    const forged = {
+      "no Login": { cookie: undefined, status: 401 },
+      "another site": {
+        headers: { origin: "http://evil.example", "sec-fetch-site": "cross-site" },
+        status: 403,
+      },
+      "another Host": { headers: { host: "evil.example" }, status: 421 },
+    };
+    for (const [why, { status, ...init }] of Object.entries(forged)) {
+      for (const r of [...reads, ...writes]) {
+        const res = await api.call(r.path, {
+          method: r.method,
+          body: "body" in r ? r.body : undefined,
+          ...init,
+        });
+        await res.body?.cancel();
+        expect([why, r.method, r.path, res.status]).toEqual([why, r.method, r.path, status]);
+      }
+    }
+    expect(await snapshot()).toEqual(before);
+  });
+
   test("a search finds only its own Bot's Memory items, by trigram and by the short-term fallback", async () => {
     for (const bot of f.bots) {
       const c = bot.conversations[0]!;
