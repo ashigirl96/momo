@@ -6,6 +6,7 @@ export const migrations: MigrationSource = {
   dir: fileURLToPath(new URL("../migrations", import.meta.url)),
 };
 
+export { deleteConversationRecords, type DeletedConversationRecords } from "./deletion.ts";
 export { eventsAfter, streamAfter, type StoredEvent } from "./events.ts";
 export { listMessages, toMessageItem, type Message, type MessageAuthor } from "./messages.ts";
 export { postOwnerMessage } from "./post-message.ts";
@@ -34,6 +35,7 @@ export {
   AttachmentFiles,
   getAttachment,
   readAttachment,
+  removeAttachmentFiles,
   removeWorkspaceAttachments,
   type Attachment,
   type AttachmentUpload,

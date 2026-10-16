@@ -138,6 +138,21 @@ export function deleteMemoryItem(db: Db, tenant: TenantContext, botId: string, i
   return deleted.length > 0;
 }
 
+/** Deletes every Memory item of the Bot, for deleting the Bot; the index rows go with them. */
+export function deleteBotMemory(db: Db, tenant: TenantContext, botId: string): number {
+  return db
+    .delete(memoryItems)
+    .where(and(inTenant(memoryItems, tenant), eq(memoryItems.botId, botId)))
+    .returning({ id: memoryItems.id })
+    .all().length;
+}
+
+/** Deletes every Memory item of the Workspace, for deleting the Workspace. */
+export function deleteWorkspaceMemory(db: Db, tenant: TenantContext): number {
+  return db.delete(memoryItems).where(inTenant(memoryItems, tenant)).returning({ id: memoryItems.id }).all()
+    .length;
+}
+
 /**
  * Empties the Run references into a Conversation that is about to be deleted, so the items stay
  * with their Bot and show a deleted Conversation as their source. The Conversation's deletion
