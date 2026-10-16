@@ -14,6 +14,19 @@ runner の契約は次のとおり。
 
 こう決めたのは、Drizzle の migrator が 0.x でも v1 でも、1 回の run を 1 つの transaction で包むからである。そのため、table の再作成で出す `PRAGMA foreign_keys=OFF` が効かず、FK を ON にした接続では子の行が CASCADE で消えるか失敗する（drizzle-orm#5782、修正 PR は未 merge）。FK の違反を見つけても、自分で COMMIT するので roll back できない。hash も照合しない。Rust 側には drizzle-kit の出力をそのまま読める crate が無く、どの道 runner を書く。TS も同じ形にすれば、どちらの runner で作った DB も相手の runner で扱える。NanoClaw も、名前で判定し、FK を transaction の外で切る自前の runner を持っている。
 
+## table の持ち主
+
+`app.db` の table は、その行が表す GLOSSARY の語で domain を決める（#21）。
+
+| domain | 持つもの |
+|---|---|
+| `workspace` | Workspace、Bot、Conversation とその参加者、Channel binding、Login |
+| `agent` | Session、Run、Conversation の発言と event の記録、Attachment、Job |
+| `memory` | Memory item とその全文検索の index |
+| `connections` | Installation、Connection、Grant、ConnectionRequest、Operation の projection |
+
+表に無い語の table を足すときは、先にこの表に行を足して domain を決める。既にある table がどの domain の migration に属するかは、`bun run db:check` の所有の検査が確かめる。
+
 ## Considered Options
 
 - Drizzle の migrator を domain ごとに `migrationsTable` を分けて使う。標準機能で済むが、上の FK・roll back・hash の問題が残る。
