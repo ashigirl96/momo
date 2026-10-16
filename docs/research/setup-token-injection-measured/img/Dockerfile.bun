@@ -1,0 +1,14 @@
+ARG BASE
+FROM ${BASE} AS base
+WORKDIR /app
+
+FROM base AS install
+COPY package.json bun.lock /temp/prod/
+RUN cd /temp/prod && bun install --frozen-lockfile --production
+
+FROM base AS release
+COPY --from=install /temp/prod/node_modules node_modules
+COPY package.json .
+RUN ls node_modules/@anthropic-ai/ > /app/installed.txt && du -sh node_modules >> /app/installed.txt
+USER bun
+ENTRYPOINT ["bun"]
