@@ -280,6 +280,28 @@ describe("agent rows in the database", () => {
     );
   });
 
+  test("a message whose Run cannot be written leaves no message, Session or event behind", () => {
+    testDb.sqlite.run("CREATE TRIGGER probe BEFORE INSERT ON runs BEGIN SELECT RAISE(ABORT, 'probe'); END");
+
+    expect(() => post("1")).toThrow(/insert into "runs"/);
+    expect(listMessages(db(), a, convA.id, {})!.items).toEqual([]);
+    expect(eventsAfter(db(), a, convA.id, 0)).toEqual([]);
+    expect(testDb.sqlite.query("SELECT count(*) AS n FROM sessions").get()).toEqual({ n: 0 });
+  });
+
+  test("a Run whose Bot message cannot be written stays running", () => {
+    const { run } = post("1")!;
+    startNextRun(db(), a, run.sessionId, now);
+    appendRunDelta(db(), a, run.id, "返事", now);
+    testDb.sqlite.run(
+      "CREATE TRIGGER probe BEFORE INSERT ON messages WHEN NEW.author_kind = 'bot' BEGIN SELECT RAISE(ABORT, 'probe'); END",
+    );
+
+    expect(() => finishRun(db(), a, run.id, { outcome: "completed", now })).toThrow(/insert into "messages"/);
+    expect(getRun(db(), a, run.id)?.status).toBe("running");
+    expect(kinds(a, convA).at(-1)).toBe("run_delta");
+  });
+
   test("a Run cannot be moved to another Workspace", () => {
     const run = post("1")!.run;
 
