@@ -16,4 +16,5 @@ Memory item に audience（公開範囲）を持たせない。Bot の Memory it
 - SECURITY-ACCEPTANCE H の「audience 限定の検索」と「private 記憶を group Session の context へ無条件で入れない」を、Bot を境界にする形に書き換えた。
 - Memory index を消したり直したりしても、開いている Session には compaction の後か次の Session まで残る。Agent SDK は system prompt と最初の context を Session に記録して使い回すためである。検索の索引にはすぐ反映し、UI の削除の画面にこの限界を表示する。
 - 物理的に消すので、FTS5 の `secure-delete` と `PRAGMA secure_delete` を両方有効にする。FTS5 の既定では、消した行の本文を索引から復元できる。
+- Bot が書き換えた Memory index は、所有者が保存するまで Session に入らない（ADR-0015）。
 - Claude Code の CLAUDE.md と auto memory は読まない（`settingSources: []`、`CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`）。記憶の正本を app.db の Memory item だけにするためである。

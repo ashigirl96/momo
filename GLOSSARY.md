@@ -59,7 +59,7 @@ Bot が Conversation をまたいで持ち越す長期の記憶の 1 件。1 体
 _Avoid_: note, knowledge
 
 **Memory index**:
-Bot が自分で書き直す、自分の Memory item への地図になる 1 件の Memory item。Session の始めに Bot へ渡る記憶はこれだけで、ほかの Memory item は Bot が探して引く。
+自分の Memory item への地図になる 1 件の Memory item。Bot は書き換えの案を出せるが、Session の始めに Bot へ渡るのは所有者が保存した版だけ。ほかの Memory item は Bot が探して引く。
 _Avoid_: core memory, MEMORY.md
 
 ### 外部接続

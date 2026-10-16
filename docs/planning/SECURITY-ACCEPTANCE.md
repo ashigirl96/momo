@@ -161,7 +161,7 @@ requested → denied
 
 - [ ] Memory検索はWorkspace/Bot限定で行い、他Botの記憶を結合しない。記憶はaudienceを持たず、境界はBotにする（[ADR-0011](../adr/0011-memory-bounded-by-bot-without-audience.md)）。
 - [ ] LLMが抽出した記憶と人が承認した記憶にprovenanceを残す。
-- [ ] 外部コンテンツの命令をsystem-level設定や承認規則へ自動昇格させない。
+- [ ] 外部コンテンツの命令をsystem-level設定や承認規則へ自動昇格させない。Botが書き換えたMemory indexは所有者が保存するまでSessionへ注入しない（[ADR-0015](../adr/0015-memory-index-injected-only-as-saved-by-owner.md)）。
 - [ ] 他の人が読むchannel・group DMへの返信は、記憶を含むかに関わらず毎回承認を通る。記憶を出したくない場では別のBotを使う（ADR-0011）。
 - [ ] 明示的な記憶編集/忘却が検索indexにすぐ反映される。開いているSessionへ注入済みのMemory indexはcompactionか次のSessionまで残り、その限界をUIに表示する（ADR-0011）。
 - [ ] 削除後のバックアップ保持と、既に外部へ送った情報を回収できない限界を表示する。
