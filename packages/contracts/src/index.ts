@@ -24,6 +24,26 @@ export const LoginList = z.strictObject({
 });
 export type LoginList = z.infer<typeof LoginList>;
 
+export const WORKSPACE_NAME_MAX = 50;
+
+export const WorkspaceItem = z.strictObject({
+  id: z.string(),
+  name: z.string(),
+  createdAt: epochMs,
+});
+export type WorkspaceItem = z.infer<typeof WorkspaceItem>;
+
+export const WorkspaceList = z.strictObject({
+  workspaces: z.array(WorkspaceItem),
+});
+export type WorkspaceList = z.infer<typeof WorkspaceList>;
+
+/** The backend assigns the id; a request naming one is refused. */
+export const CreateWorkspaceRequest = z.strictObject({
+  name: z.string().trim().min(1).max(WORKSPACE_NAME_MAX),
+});
+export type CreateWorkspaceRequest = z.input<typeof CreateWorkspaceRequest>;
+
 export const Warning = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("filevault_off") }),
   z.strictObject({ kind: z.literal("time_machine_not_excluded") }),

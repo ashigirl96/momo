@@ -1,0 +1,174 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "09e79d54-54aa-4486-9a74-2385066dbc34",
+  "prevIds": [
+    "00000000-0000-0000-0000-000000000000"
+  ],
+  "ddl": [
+    {
+      "name": "fixture_folders",
+      "entityType": "tables"
+    },
+    {
+      "name": "fixture_notes",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "fixture_folders"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "workspace_id",
+      "entityType": "columns",
+      "table": "fixture_folders"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "fixture_folders"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "fixture_notes"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "workspace_id",
+      "entityType": "columns",
+      "table": "fixture_notes"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "folder_id",
+      "entityType": "columns",
+      "table": "fixture_notes"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "body",
+      "entityType": "columns",
+      "table": "fixture_notes"
+    },
+    {
+      "columns": [
+        "workspace_id"
+      ],
+      "tableTo": "workspaces",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_fixture_folders_workspace_id_workspaces_id_fk",
+      "entityType": "fks",
+      "table": "fixture_folders"
+    },
+    {
+      "columns": [
+        "workspace_id"
+      ],
+      "tableTo": "workspaces",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_fixture_notes_workspace_id_workspaces_id_fk",
+      "entityType": "fks",
+      "table": "fixture_notes"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "folder_id"
+      ],
+      "tableTo": "fixture_folders",
+      "columnsTo": [
+        "workspace_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_fixture_notes_workspace_id_folder_id_fixture_folders_workspace_id_id_fk",
+      "entityType": "fks",
+      "table": "fixture_notes"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "fixture_folders_pk",
+      "table": "fixture_folders",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "fixture_notes_pk",
+      "table": "fixture_notes",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "fixture_folders_workspace_id_id_unique",
+      "entityType": "uniques",
+      "table": "fixture_folders"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "fixture_notes_workspace_id_id_unique",
+      "entityType": "uniques",
+      "table": "fixture_notes"
+    }
+  ],
+  "renames": []
+}

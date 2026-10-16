@@ -5,6 +5,7 @@ import type { Server } from "bun";
 import type { PairingTokens } from "../pairing.ts";
 import { clearedLoginCookie, loginCookie, readLoginToken } from "./login-cookie.ts";
 import { apiError, json, noContent } from "./respond.ts";
+import { workspaceRoute } from "./workspaces.ts";
 
 export type ApiContext = {
   db: Db;
@@ -57,7 +58,9 @@ function events(req: Request, server: Server<undefined>): Response {
   });
 }
 
-function authedRoute({ req, server, login, path }: Authed, ctx: ApiContext): Response {
+async function authedRoute({ req, server, login, path }: Authed, ctx: ApiContext): Promise<Response> {
+  const workspace = await workspaceRoute({ req, path, login, body: () => readJson(req) }, ctx);
+  if (workspace) return workspace;
   if (path === "/api/status" && req.method === "GET") {
     return json({ loginId: login.id, warnings: ctx.warnings } satisfies Status);
   }
@@ -82,7 +85,7 @@ export async function handleApi(req: Request, server: Server<undefined>, ctx: Ap
   const token = readLoginToken(req);
   const auth = authenticateLogin(ctx.db, token, ctx.now());
   if (!auth) return apiError("unauthenticated", "no Login; run `momo open`");
-  const res = authedRoute({ req, server, login: auth.login, path }, ctx);
+  const res = await authedRoute({ req, server, login: auth.login, path }, ctx);
   if (auth.renewed && !res.headers.has("set-cookie")) res.headers.set("set-cookie", loginCookie(token));
   return res;
 }
