@@ -49,19 +49,6 @@ async function pair(req: Request, ctx: ApiContext): Promise<Response> {
   return noContent({ "set-cookie": loginCookie(token) });
 }
 
-function events(req: Request, server: Server<undefined>): Response {
-  // Bun's 10 s idle timeout would otherwise cut the stream.
-  server.timeout(req, 0);
-  const stream = new ReadableStream<string>({
-    start(controller) {
-      controller.enqueue("event: ready\ndata: {}\n\n");
-    },
-  });
-  return new Response(stream, {
-    headers: { "content-type": "text/event-stream", "cache-control": "no-store" },
-  });
-}
-
 async function authedRoute(
   { req, server, login, path, stillLoggedIn }: Authed,
   ctx: ApiContext,
@@ -84,7 +71,6 @@ async function authedRoute(
     if (!revokeLogin(ctx.db, id)) return apiError("not_found", "no such Login");
     return noContent(id === login.id ? { "set-cookie": clearedLoginCookie() } : undefined);
   }
-  if (path === "/api/events" && req.method === "GET") return events(req, server);
   return apiError("not_found", "no such API");
 }
 
