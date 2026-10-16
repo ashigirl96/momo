@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>Label</key><string>dev.momo.probe37</string>
+<key>ProgramArguments</key><array><string><dir>/login-adhoc/bin/securityd</string><string>read</string><string>~/Library/Keychains/login.keychain-db</string><string>--no-ui</string></array>
+<key>EnvironmentVariables</key><dict><key>PROBE_ACCOUNT</key><string>adhoc-login</string></dict>
+<key>StandardOutPath</key><string><dir>/agent.out</string>
+<key>StandardErrorPath</key><string><dir>/agent.err</string>
+<key>RunAtLoad</key><true/>
+</dict></plist>
