@@ -1,0 +1,5 @@
+ARG BASE
+FROM ${BASE}
+WORKDIR /app
+COPY package.json ./
+RUN npm install --no-audit --no-fund && ls node_modules/@anthropic-ai/ > /app/installed.txt && du -sh node_modules >> /app/installed.txt

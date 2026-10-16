@@ -1,0 +1,4 @@
+FROM sdk16:bun-alpine
+USER root
+RUN apk add --no-cache bash
+USER bun
