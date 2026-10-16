@@ -89,7 +89,7 @@ Run の中で Bot が人に出す「この provider のこの操作を使いた�
 _Avoid_: auth request, connection prompt
 
 **Model credential**:
-Bot がモデルとの通信に使う資格情報。Workspace に属し、その Workspace の Bot すべてが使う。
+Bot がモデルとの通信に使う、所有者の Claude plan に結びついた資格情報。Workspace に属し、その Workspace の Bot すべてが使う。
 _Avoid_: API key
 
 ### 操作と承認
