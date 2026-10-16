@@ -92,6 +92,10 @@ _Avoid_: auth request, connection prompt
 Bot がモデルとの通信に使う、所有者の Claude plan に結びついた資格情報。Workspace に属し、その Workspace の Bot すべてが使う。
 _Avoid_: API key
 
+**Vault**:
+Connection と Model credential の秘密、momo が作る CA の秘密鍵を、securityd だけが取り出せる形で保管する場所。中身は Bot にも backend にも見せない。
+_Avoid_: secret store, keystore
+
 ### 操作と承認
 
 **Operation**:
