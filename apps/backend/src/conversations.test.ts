@@ -509,6 +509,22 @@ describe("renewing a Session", () => {
     ]);
   });
 
+  test("a cross-site page or a request without a Login cannot cancel or reset", async () => {
+    b = await startTestBackend({ fakeRunnerDelayMs: 30 });
+    const cookie = await b.login();
+    const { base, w } = await setup(cookie, "個人");
+    const { run } = await say(cookie, base, "1");
+    const evil = { origin: "http://evil.example", "sec-fetch-site": "cross-site" };
+
+    expect((await b.call(`${base}/reset`, { method: "POST", cookie, headers: evil })).status).toBe(403);
+    expect((await b.call(`/api/workspaces/${w.id}/runs/${run.id}/cancel`, { method: "POST" })).status).toBe(
+      401,
+    );
+    const page = await history(cookie, base);
+    expect(page.sessions.map((s) => s.status)).toEqual(["open"]);
+    expect(page.messages.some((m) => m.author.kind === "bot" && m.author.cancelled)).toBe(false);
+  });
+
   test("Run, Conversation and Bot ids of another Workspace cannot cancel, reset or renew anything", async () => {
     b = await startTestBackend({ fakeRunnerDelayMs: 30 });
     const cookie = await b.login();
