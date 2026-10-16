@@ -4,6 +4,7 @@ import {
   BotSettingsProposal,
   ConversationItem,
   ConversationList,
+  DeletionPreview,
   LoginList,
   MemoryList,
   MessagePage,
@@ -74,6 +75,13 @@ export const api = {
     request(`${scoped(workspaceId)}/runs/${encodeURIComponent(runId)}/cancel`, RunItem, { method: "POST" }),
   resetSession: (workspaceId: string, conversationId: string) =>
     request(`${conversation(workspaceId, conversationId)}/reset`, ResetSessionResponse, { method: "POST" }),
+  workspaceDeletionPreview: (workspaceId: string) =>
+    request(`${scoped(workspaceId)}/deletion-preview`, DeletionPreview),
+  deleteWorkspace: (workspaceId: string) => request(scoped(workspaceId), undefined, { method: "DELETE" }),
+  botDeletionPreview: (workspaceId: string, botId: string) =>
+    request(`${scoped(workspaceId)}/bots/${encodeURIComponent(botId)}/deletion-preview`, DeletionPreview),
+  deleteBot: (workspaceId: string, botId: string) =>
+    request(`${scoped(workspaceId)}/bots/${encodeURIComponent(botId)}`, undefined, { method: "DELETE" }),
   conversations: (workspaceId: string) => request(`${scoped(workspaceId)}/conversations`, ConversationList),
   createConversation: (workspaceId: string, body: CreateConversationRequest) =>
     request(`${scoped(workspaceId)}/conversations`, ConversationItem, {
