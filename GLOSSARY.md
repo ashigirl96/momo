@@ -38,6 +38,10 @@ _Avoid_: session, web session
 ある Session の中で 1 体の Bot が行う 1 回の実行。それを起こした主体（所有者、Channel binding 経由の外部の人、Job）を持つ。
 _Avoid_: turn, invocation, job
 
+**Sandbox**:
+1 つの Session の Bot が tool やコードを実行する、隔離された環境。Session ごとに 1 つあり、外へは Gateway にしか届かない。Run の外から来た要求は Gateway が受け付けない。
+_Avoid_: container, VM, runner
+
 **Job**:
 所有者が保存した、決めた時刻や周期に 1 体の Bot の Run を起こす予定。Bot は案を出せるが、Job を作るのは所有者だけ。
 _Avoid_: schedule, task, cron
