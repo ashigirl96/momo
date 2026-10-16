@@ -43,7 +43,7 @@ _Avoid_: turn, invocation, job
 _Avoid_: container, VM, runner
 
 **Job**:
-所有者が保存した、決めた時刻や周期に 1 体の Bot の Run を起こす予定。Bot は案を出せるが、Job を作るのは所有者だけ。
+所有者が保存した、決めた時刻や周期に 1 つの Conversation で 1 体の Bot の Run を起こす予定。Bot は案を出せるが、Job を作るのは所有者だけ。
 _Avoid_: schedule, task, cron
 
 **Attachment**:
