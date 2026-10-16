@@ -51,7 +51,7 @@ afterEach(() => {
 });
 
 type Seeded = {
-  scope: WorkspaceScope;
+  workspaceScope: WorkspaceScope;
   botId: string;
   otherBotId: string;
   conversations: string[];
@@ -64,17 +64,17 @@ type Seeded = {
 
 /** `secret` is in every text the owner or the Bot wrote. */
 function seed(name: string, secret: string): Seeded {
-  const scope = resolveWorkspaceScope(db(), createWorkspace(db(), { name, now }).id, {
+  const workspaceScope = resolveWorkspaceScope(db(), createWorkspace(db(), { name, now }).id, {
     kind: "owner",
     loginId: "login_test",
   })!;
-  const bot = createBot(db(), scope, { ...settings, name: `${secret} Bot`, now });
-  const other = createBot(db(), scope, { ...settings, name: `${name} 残る Bot`, now });
-  const first = createConversation(db(), scope, { primaryBotId: bot.id, now })!.id;
-  const second = createConversation(db(), scope, { primaryBotId: bot.id, now })!.id;
-  const otherConversation = createConversation(db(), scope, { primaryBotId: other.id, now })!.id;
+  const bot = createBot(db(), workspaceScope, { ...settings, name: `${secret} Bot`, now });
+  const other = createBot(db(), workspaceScope, { ...settings, name: `${name} 残る Bot`, now });
+  const first = createConversation(db(), workspaceScope, { primaryBotId: bot.id, now })!.id;
+  const second = createConversation(db(), workspaceScope, { primaryBotId: bot.id, now })!.id;
+  const otherConversation = createConversation(db(), workspaceScope, { primaryBotId: other.id, now })!.id;
 
-  const posted = postOwnerMessage(db(), scope, {
+  const posted = postOwnerMessage(db(), workspaceScope, {
     conversationId: first,
     text: `${secret} を覚えて`,
     now,
@@ -85,9 +85,9 @@ function seed(name: string, secret: string): Seeded {
       ],
     },
   })!;
-  startNextRun(db(), scope, posted.run.sessionId, now);
-  appendRunDelta(db(), scope, posted.run.id, `覚えました: ${secret}`, now);
-  const memory = writeMemoryItem(db(), scope, {
+  startNextRun(db(), workspaceScope, posted.run.sessionId, now);
+  appendRunDelta(db(), workspaceScope, posted.run.id, `覚えました: ${secret}`, now);
+  const memory = writeMemoryItem(db(), workspaceScope, {
     runId: posted.run.id,
     item: {
       type: "note",
@@ -98,25 +98,33 @@ function seed(name: string, secret: string): Seeded {
     },
     now,
   })!;
-  finishRun(db(), scope, posted.run.id, { outcome: "completed", now });
-  resetSession(db(), scope, { conversationId: first, now });
+  finishRun(db(), workspaceScope, posted.run.id, { outcome: "completed", now });
+  resetSession(db(), workspaceScope, { conversationId: first, now });
 
-  const running = postOwnerMessage(db(), scope, { conversationId: second, text: `${secret} 実行中`, now })!;
-  startNextRun(db(), scope, running.run.sessionId, now);
-  appendRunDelta(db(), scope, running.run.id, `${secret} 途中`, now);
-  postOwnerMessage(db(), scope, { conversationId: second, text: `${secret} 待ち`, now });
+  const running = postOwnerMessage(db(), workspaceScope, {
+    conversationId: second,
+    text: `${secret} 実行中`,
+    now,
+  })!;
+  startNextRun(db(), workspaceScope, running.run.sessionId, now);
+  appendRunDelta(db(), workspaceScope, running.run.id, `${secret} 途中`, now);
+  postOwnerMessage(db(), workspaceScope, { conversationId: second, text: `${secret} 待ち`, now });
 
-  const kept = postOwnerMessage(db(), scope, { conversationId: otherConversation, text: "残る話", now })!;
-  startNextRun(db(), scope, kept.run.sessionId, now);
-  const otherMemory = writeMemoryItem(db(), scope, {
+  const kept = postOwnerMessage(db(), workspaceScope, {
+    conversationId: otherConversation,
+    text: "残る話",
+    now,
+  })!;
+  startNextRun(db(), workspaceScope, kept.run.sessionId, now);
+  const otherMemory = writeMemoryItem(db(), workspaceScope, {
     runId: kept.run.id,
     item: { type: "note", title: "残る記憶", description: "", tags: [], body: "残る記憶の本文" },
     now,
   })!;
-  finishRun(db(), scope, kept.run.id, { outcome: "completed", now });
+  finishRun(db(), workspaceScope, kept.run.id, { outcome: "completed", now });
 
   return {
-    scope,
+    workspaceScope,
     botId: bot.id,
     otherBotId: other.id,
     conversations: [first, second],
@@ -170,8 +178,8 @@ function scan(needle: string): number {
   return hits;
 }
 
-function attachmentFiles(scope: WorkspaceScope): string[] {
-  const dir = join(dataDir, "attachments", scope.workspaceId);
+function attachmentFiles(workspaceScope: WorkspaceScope): string[] {
+  const dir = join(dataDir, "attachments", workspaceScope.workspaceId);
   return existsSync(dir) ? readdirSync(dir) : [];
 }
 
@@ -193,19 +201,19 @@ describe("deleting a Workspace", () => {
   test("deletes every row of the Workspace in every domain and its Attachment files", () => {
     const a = seed("個人", "QWX-個人の秘密-1");
     const b = seed("会社", "JKV-会社の秘密-2");
-    expect(nonEmpty(rowsOf(a.scope.workspaceId))).toEqual(EVERY_TABLE);
+    expect(nonEmpty(rowsOf(a.workspaceScope.workspaceId))).toEqual(EVERY_TABLE);
 
-    const deleted = deleteWorkspaceEverywhere(db(), files, a.scope);
+    const deleted = deleteWorkspaceEverywhere(db(), files, a.workspaceScope);
 
     expect(deleted.conversationIds.toSorted()).toEqual([...a.conversations, a.otherConversation].toSorted());
     expect(deleted.runningRunIds).toEqual([a.runningRunId]);
-    expect(nonEmpty(rowsOf(a.scope.workspaceId))).toEqual([]);
-    expect(findWorkspace(db(), a.scope.workspaceId)).toBeUndefined();
-    expect(existsSync(join(dataDir, "attachments", a.scope.workspaceId))).toBe(false);
+    expect(nonEmpty(rowsOf(a.workspaceScope.workspaceId))).toEqual([]);
+    expect(findWorkspace(db(), a.workspaceScope.workspaceId)).toBeUndefined();
+    expect(existsSync(join(dataDir, "attachments", a.workspaceScope.workspaceId))).toBe(false);
 
-    expect(nonEmpty(rowsOf(b.scope.workspaceId))).toEqual(EVERY_TABLE);
-    expect(attachmentFiles(b.scope)).toEqual([b.attachmentId]);
-    expect(searchMemoryItems(db(), b.scope, b.botId, "JKV").map((m) => m.id)).toEqual([b.memoryId]);
+    expect(nonEmpty(rowsOf(b.workspaceScope.workspaceId))).toEqual(EVERY_TABLE);
+    expect(attachmentFiles(b.workspaceScope)).toEqual([b.attachmentId]);
+    expect(searchMemoryItems(db(), b.workspaceScope, b.botId, "JKV").map((m) => m.id)).toEqual([b.memoryId]);
   });
 
   test("leaves none of the deleted text in app.db, its WAL or the full-text index", () => {
@@ -217,37 +225,39 @@ describe("deleting a Workspace", () => {
     // The trigram index stores three-character tokens of the text, lower-cased.
     expect(scan("qwx")).toBeGreaterThan(0);
 
-    deleteWorkspaceEverywhere(db(), files, a.scope);
+    deleteWorkspaceEverywhere(db(), files, a.workspaceScope);
     testDb.sqlite.run("PRAGMA wal_checkpoint(TRUNCATE)");
 
     expect(scan(secret)).toBe(0);
     expect(scan("QWX")).toBe(0);
     expect(scan("qwx")).toBe(0);
-    expect(scan(a.scope.workspaceId)).toBe(0);
+    expect(scan(a.workspaceScope.workspaceId)).toBe(0);
     expect(scan("JKV-残る秘密-8842")).toBeGreaterThan(0);
     expect(scan("jkv")).toBeGreaterThan(0);
   });
 
   test("deletes nothing, files included, when one step fails", () => {
     const a = seed("個人", "QWX-1");
-    const before = rowsOf(a.scope.workspaceId);
+    const before = rowsOf(a.workspaceScope.workspaceId);
     testDb.sqlite.run(
       "CREATE TRIGGER fail_workspace_delete BEFORE DELETE ON workspaces BEGIN SELECT RAISE(ABORT, 'injected'); END",
     );
 
-    expect(() => deleteWorkspaceEverywhere(db(), files, a.scope)).toThrow(/delete from "workspaces"/);
+    expect(() => deleteWorkspaceEverywhere(db(), files, a.workspaceScope)).toThrow(
+      /delete from "workspaces"/,
+    );
 
-    expect(rowsOf(a.scope.workspaceId)).toEqual(before);
-    expect(attachmentFiles(a.scope)).toEqual([a.attachmentId]);
-    expect(getMemoryItem(db(), a.scope, a.botId, a.memoryId)?.createdRunId).not.toBeNull();
-    expect(searchMemoryItems(db(), a.scope, a.botId, "QWX").map((m) => m.id)).toEqual([a.memoryId]);
+    expect(rowsOf(a.workspaceScope.workspaceId)).toEqual(before);
+    expect(attachmentFiles(a.workspaceScope)).toEqual([a.attachmentId]);
+    expect(getMemoryItem(db(), a.workspaceScope, a.botId, a.memoryId)?.createdRunId).not.toBeNull();
+    expect(searchMemoryItems(db(), a.workspaceScope, a.botId, "QWX").map((m) => m.id)).toEqual([a.memoryId]);
   });
 
   test("the preview counts the Conversations that will go", () => {
     const a = seed("個人", "QWX-1");
     seed("会社", "JKV-2");
 
-    expect(previewWorkspaceDeletion(db(), a.scope)).toEqual({ conversations: 3 });
+    expect(previewWorkspaceDeletion(db(), a.workspaceScope)).toEqual({ conversations: 3 });
   });
 });
 
@@ -255,21 +265,21 @@ describe("deleting a Bot", () => {
   test("deletes its Memory items and the Conversations it leads with their messages, Runs and Attachments", () => {
     const a = seed("個人", "QWX-個人-1");
     const b = seed("会社", "JKV-会社-2");
-    const others = rowsOf(b.scope.workspaceId);
+    const others = rowsOf(b.workspaceScope.workspaceId);
 
-    const deleted = deleteBotEverywhere(db(), files, a.scope, a.botId)!;
+    const deleted = deleteBotEverywhere(db(), files, a.workspaceScope, a.botId)!;
 
     expect(deleted.conversationIds.toSorted()).toEqual(a.conversations.toSorted());
     expect(deleted.runningRunIds).toEqual([a.runningRunId]);
-    expect(getBot(db(), a.scope, a.botId)).toBeUndefined();
-    for (const id of a.conversations) expect(getConversation(db(), a.scope, id)).toBeUndefined();
-    expect(getMemoryItem(db(), a.scope, a.botId, a.memoryId)).toBeUndefined();
-    expect(attachmentFiles(a.scope)).toEqual([]);
+    expect(getBot(db(), a.workspaceScope, a.botId)).toBeUndefined();
+    for (const id of a.conversations) expect(getConversation(db(), a.workspaceScope, id)).toBeUndefined();
+    expect(getMemoryItem(db(), a.workspaceScope, a.botId, a.memoryId)).toBeUndefined();
+    expect(attachmentFiles(a.workspaceScope)).toEqual([]);
 
-    expect(getBot(db(), a.scope, a.otherBotId)).toBeDefined();
-    expect(getConversation(db(), a.scope, a.otherConversation)).toBeDefined();
-    expect(getMemoryItem(db(), a.scope, a.otherBotId, a.otherMemoryId)?.createdRunId).not.toBeNull();
-    const left = rowsOf(a.scope.workspaceId);
+    expect(getBot(db(), a.workspaceScope, a.otherBotId)).toBeDefined();
+    expect(getConversation(db(), a.workspaceScope, a.otherConversation)).toBeDefined();
+    expect(getMemoryItem(db(), a.workspaceScope, a.otherBotId, a.otherMemoryId)?.createdRunId).not.toBeNull();
+    const left = rowsOf(a.workspaceScope.workspaceId);
     expect(left).toMatchObject({
       workspaces: 1,
       bots: 1,
@@ -278,13 +288,13 @@ describe("deleting a Bot", () => {
       memory_fts: 1,
       attachments: 0,
     });
-    expect(rowsOf(b.scope.workspaceId)).toEqual(others);
+    expect(rowsOf(b.workspaceScope.workspaceId)).toEqual(others);
   });
 
   test("leaves none of its text in app.db or the full-text index", () => {
     const secret = "QWX-消える Bot の秘密-5512";
     const a = seed("個人", secret);
-    deleteBotEverywhere(db(), files, a.scope, a.botId);
+    deleteBotEverywhere(db(), files, a.workspaceScope, a.botId);
     testDb.sqlite.run("PRAGMA wal_checkpoint(TRUNCATE)");
 
     expect(scan(secret)).toBe(0);
@@ -294,33 +304,35 @@ describe("deleting a Bot", () => {
 
   test("deletes nothing when one step fails", () => {
     const a = seed("個人", "QWX-1");
-    const before = rowsOf(a.scope.workspaceId);
+    const before = rowsOf(a.workspaceScope.workspaceId);
     testDb.sqlite.run(
       "CREATE TRIGGER fail_bot_delete BEFORE DELETE ON bots BEGIN SELECT RAISE(ABORT, 'injected'); END",
     );
 
-    expect(() => deleteBotEverywhere(db(), files, a.scope, a.botId)).toThrow(/delete from "bots"/);
+    expect(() => deleteBotEverywhere(db(), files, a.workspaceScope, a.botId)).toThrow(/delete from "bots"/);
 
-    expect(rowsOf(a.scope.workspaceId)).toEqual(before);
-    expect(attachmentFiles(a.scope)).toEqual([a.attachmentId]);
+    expect(rowsOf(a.workspaceScope.workspaceId)).toEqual(before);
+    expect(attachmentFiles(a.workspaceScope)).toEqual([a.attachmentId]);
   });
 
   test("another Workspace's Bot id deletes nothing", () => {
     const a = seed("個人", "QWX-1");
     const b = seed("会社", "JKV-2");
-    const before = { a: rowsOf(a.scope.workspaceId), b: rowsOf(b.scope.workspaceId) };
+    const before = { a: rowsOf(a.workspaceScope.workspaceId), b: rowsOf(b.workspaceScope.workspaceId) };
 
-    expect(deleteBotEverywhere(db(), files, a.scope, b.botId)).toBeUndefined();
-    expect(previewBotDeletion(db(), a.scope, b.botId)).toBeUndefined();
+    expect(deleteBotEverywhere(db(), files, a.workspaceScope, b.botId)).toBeUndefined();
+    expect(previewBotDeletion(db(), a.workspaceScope, b.botId)).toBeUndefined();
 
-    expect({ a: rowsOf(a.scope.workspaceId), b: rowsOf(b.scope.workspaceId) }).toEqual(before);
-    expect(attachmentFiles(b.scope)).toEqual([b.attachmentId]);
+    expect({ a: rowsOf(a.workspaceScope.workspaceId), b: rowsOf(b.workspaceScope.workspaceId) }).toEqual(
+      before,
+    );
+    expect(attachmentFiles(b.workspaceScope)).toEqual([b.attachmentId]);
   });
 
   test("the preview counts the Conversations it leads", () => {
     const a = seed("個人", "QWX-1");
 
-    expect(previewBotDeletion(db(), a.scope, a.botId)).toEqual({ conversations: 2 });
-    expect(previewBotDeletion(db(), a.scope, a.otherBotId)).toEqual({ conversations: 1 });
+    expect(previewBotDeletion(db(), a.workspaceScope, a.botId)).toEqual({ conversations: 2 });
+    expect(previewBotDeletion(db(), a.workspaceScope, a.otherBotId)).toEqual({ conversations: 1 });
   });
 });

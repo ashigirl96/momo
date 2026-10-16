@@ -22,49 +22,53 @@ export type Deletion = {
   runningRunIds: string[];
 };
 
-export function previewWorkspaceDeletion(db: Db, scope: WorkspaceScope): DeletionPreview {
-  return { conversations: conversationIds(db, scope).length };
+export function previewWorkspaceDeletion(db: Db, workspaceScope: WorkspaceScope): DeletionPreview {
+  return { conversations: conversationIds(db, workspaceScope).length };
 }
 
 export function previewBotDeletion(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   botId: string,
 ): DeletionPreview | undefined {
-  if (!getBot(db, scope, botId)) return undefined;
-  return { conversations: conversationIds(db, scope, { primaryBotId: botId }).length };
+  if (!getBot(db, workspaceScope, botId)) return undefined;
+  return { conversations: conversationIds(db, workspaceScope, { primaryBotId: botId }).length };
 }
 
 /** Attachment files go only after the commit, so a failed transaction leaves both rows and files in place. */
-export function deleteWorkspaceEverywhere(db: Db, files: AttachmentFiles, scope: WorkspaceScope): Deletion {
+export function deleteWorkspaceEverywhere(
+  db: Db,
+  files: AttachmentFiles,
+  workspaceScope: WorkspaceScope,
+): Deletion {
   const deletion = db.transaction((tx) => {
-    const ids = conversationIds(tx, scope);
-    deleteWorkspaceMemory(tx, scope);
-    const { runningRunIds } = deleteConversationRecords(tx, scope, ids);
-    deleteWorkspace(tx, scope);
+    const ids = conversationIds(tx, workspaceScope);
+    deleteWorkspaceMemory(tx, workspaceScope);
+    const { runningRunIds } = deleteConversationRecords(tx, workspaceScope, ids);
+    deleteWorkspace(tx, workspaceScope);
     return { conversationIds: ids, runningRunIds };
   });
-  removeWorkspaceAttachments(files, scope);
+  removeWorkspaceAttachments(files, workspaceScope);
   return deletion;
 }
 
 export function deleteBotEverywhere(
   db: Db,
   files: AttachmentFiles,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   botId: string,
 ): Deletion | undefined {
   const deletion = db.transaction((tx) => {
-    if (!getBot(tx, scope, botId)) return undefined;
-    const ids = conversationIds(tx, scope, { primaryBotId: botId });
-    deleteBotMemory(tx, scope, botId);
-    for (const id of ids) detachMemoryFromConversation(tx, scope, id);
-    const records = deleteConversationRecords(tx, scope, ids);
-    deleteConversations(tx, scope, ids);
-    deleteBot(tx, scope, botId);
+    if (!getBot(tx, workspaceScope, botId)) return undefined;
+    const ids = conversationIds(tx, workspaceScope, { primaryBotId: botId });
+    deleteBotMemory(tx, workspaceScope, botId);
+    for (const id of ids) detachMemoryFromConversation(tx, workspaceScope, id);
+    const records = deleteConversationRecords(tx, workspaceScope, ids);
+    deleteConversations(tx, workspaceScope, ids);
+    deleteBot(tx, workspaceScope, botId);
     return { conversationIds: ids, ...records };
   });
   if (!deletion) return undefined;
-  removeAttachmentFiles(files, scope, deletion.attachmentIds);
+  removeAttachmentFiles(files, workspaceScope, deletion.attachmentIds);
   return { conversationIds: deletion.conversationIds, runningRunIds: deletion.runningRunIds };
 }

@@ -11,13 +11,13 @@ export const EVENT_PAGE_MAX = 500;
 /** Callers check the Conversation is in the Workspace first. */
 export function appendEvent(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   input: { conversationId: string; runId?: string; event: ConversationEvent; now: Date },
 ): number {
   return db
     .insert(conversationEvents)
     .values({
-      workspaceId: scope.workspaceId,
+      workspaceId: workspaceScope.workspaceId,
       conversationId: input.conversationId,
       runId: input.runId,
       event: input.event,
@@ -29,7 +29,7 @@ export function appendEvent(
 
 export function eventsAfter(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   conversationId: string,
   afterId: number,
   limit = EVENT_PAGE_MAX,
@@ -39,7 +39,7 @@ export function eventsAfter(
     .from(conversationEvents)
     .where(
       and(
-        inWorkspace(conversationEvents, scope),
+        inWorkspace(conversationEvents, workspaceScope),
         eq(conversationEvents.conversationId, conversationId),
         gt(conversationEvents.id, afterId),
       ),
@@ -50,9 +50,9 @@ export function eventsAfter(
 }
 
 /** Before the first event of the oldest unfinished Run, so a reload replays that Run's stream. */
-export function streamAfter(db: Db, scope: WorkspaceScope, conversationId: string): number {
+export function streamAfter(db: Db, workspaceScope: WorkspaceScope, conversationId: string): number {
   const inConversation = and(
-    inWorkspace(conversationEvents, scope),
+    inWorkspace(conversationEvents, workspaceScope),
     eq(conversationEvents.conversationId, conversationId),
   );
   const unfinished = db
@@ -60,7 +60,7 @@ export function streamAfter(db: Db, scope: WorkspaceScope, conversationId: strin
     .from(runs)
     .where(
       and(
-        inWorkspace(runs, scope),
+        inWorkspace(runs, workspaceScope),
         eq(runs.conversationId, conversationId),
         inArray(runs.status, ["queued", "running"]),
       ),

@@ -13,18 +13,18 @@ export type DeletedConversationRecords = {
 /** Bot messages go before Runs and owner messages after them because they reference each other; Memory items must already be detached from the Runs. */
 export function deleteConversationRecords(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   conversationIds: string[],
 ): DeletedConversationRecords {
   if (conversationIds.length === 0) return { attachmentIds: [], runningRunIds: [] };
   const inConversations = (table: { workspaceId: AnySQLiteColumn; conversationId: AnySQLiteColumn }) =>
-    and(inWorkspace(table, scope), inArray(table.conversationId, conversationIds));
+    and(inWorkspace(table, workspaceScope), inArray(table.conversationId, conversationIds));
   return db.transaction((tx) => {
     const attachmentIds = tx
       .delete(attachments)
       .where(
         and(
-          inWorkspace(attachments, scope),
+          inWorkspace(attachments, workspaceScope),
           inArray(
             attachments.messageId,
             tx.select({ id: messages.id }).from(messages).where(inConversations(messages)),

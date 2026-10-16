@@ -32,10 +32,10 @@ export function findWorkspace(db: Db, id: string): Workspace | undefined {
 }
 
 /** Other domains' rows of the Workspace must be deleted first in the same transaction. */
-export function deleteWorkspace(db: Db, scope: WorkspaceScope): void {
+export function deleteWorkspace(db: Db, workspaceScope: WorkspaceScope): void {
   db.transaction((tx) => {
-    tx.delete(conversations).where(inWorkspace(conversations, scope)).run();
-    tx.delete(bots).where(inWorkspace(bots, scope)).run();
-    tx.delete(workspaces).where(eq(workspaces.id, scope.workspaceId)).run();
+    tx.delete(conversations).where(inWorkspace(conversations, workspaceScope)).run();
+    tx.delete(bots).where(inWorkspace(bots, workspaceScope)).run();
+    tx.delete(workspaces).where(eq(workspaces.id, workspaceScope.workspaceId)).run();
   });
 }

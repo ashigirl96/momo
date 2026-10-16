@@ -58,9 +58,9 @@ function workspace(name: string): WorkspaceScope {
   })!;
 }
 
-function conversation(scope: WorkspaceScope): Conversation {
-  const bot = createBot(db(), scope, { ...settings, name: "Bot", tools: [], now });
-  return createConversation(db(), scope, { primaryBotId: bot.id, now })!;
+function conversation(workspaceScope: WorkspaceScope): Conversation {
+  const bot = createBot(db(), workspaceScope, { ...settings, name: "Bot", tools: [], now });
+  return createConversation(db(), workspaceScope, { primaryBotId: bot.id, now })!;
 }
 
 beforeEach(() => {
@@ -85,8 +85,8 @@ const newAttachment = (name: string, text = "中身", contentType = "text/plain"
   bytes: new TextEncoder().encode(text),
 });
 
-const post = (newAttachments: NewAttachment[], scope = a, conv = convA) =>
-  postOwnerMessage(db(), scope, {
+const post = (newAttachments: NewAttachment[], workspaceScope = a, conv = convA) =>
+  postOwnerMessage(db(), workspaceScope, {
     conversationId: conv.id,
     text: "見て",
     now,

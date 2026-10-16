@@ -15,30 +15,30 @@ export const migrations = {
 type Folder = typeof fixtureFolders.$inferSelect;
 type Note = typeof fixtureNotes.$inferSelect;
 
-export function createFolder(db: Db, scope: WorkspaceScope, input: { name: string }): Folder {
+export function createFolder(db: Db, workspaceScope: WorkspaceScope, input: { name: string }): Folder {
   return db
     .insert(fixtureFolders)
-    .values({ id: `folder_${Bun.randomUUIDv7()}`, workspaceId: scope.workspaceId, name: input.name })
+    .values({ id: `folder_${Bun.randomUUIDv7()}`, workspaceId: workspaceScope.workspaceId, name: input.name })
     .returning()
     .get();
 }
 
 export function createNote(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   input: { folderId: string; body: string },
 ): Note | undefined {
   const folder = db
     .select({ id: fixtureFolders.id })
     .from(fixtureFolders)
-    .where(and(inWorkspace(fixtureFolders, scope), eq(fixtureFolders.id, input.folderId)))
+    .where(and(inWorkspace(fixtureFolders, workspaceScope), eq(fixtureFolders.id, input.folderId)))
     .get();
   if (!folder) return undefined;
   return db
     .insert(fixtureNotes)
     .values({
       id: `note_${Bun.randomUUIDv7()}`,
-      workspaceId: scope.workspaceId,
+      workspaceId: workspaceScope.workspaceId,
       folderId: folder.id,
       body: input.body,
     })
@@ -46,66 +46,78 @@ export function createNote(
     .get();
 }
 
-export function getNote(db: Db, scope: WorkspaceScope, id: string): Note | undefined {
+export function getNote(db: Db, workspaceScope: WorkspaceScope, id: string): Note | undefined {
   return db
     .select()
     .from(fixtureNotes)
-    .where(and(inWorkspace(fixtureNotes, scope), eq(fixtureNotes.id, id)))
+    .where(and(inWorkspace(fixtureNotes, workspaceScope), eq(fixtureNotes.id, id)))
     .get();
 }
 
 export function listNotes(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   options: { cursor?: string; limit?: number },
 ): Page<Note> {
   const limit = pageLimit(options.limit);
-  const after = options.cursor === undefined ? undefined : decodeCursor(scope, "notes", options.cursor);
+  const after =
+    options.cursor === undefined ? undefined : decodeCursor(workspaceScope, "notes", options.cursor);
   const rows = db
     .select()
     .from(fixtureNotes)
     .where(
-      and(inWorkspace(fixtureNotes, scope), after === undefined ? undefined : gt(fixtureNotes.id, after)),
+      and(
+        inWorkspace(fixtureNotes, workspaceScope),
+        after === undefined ? undefined : gt(fixtureNotes.id, after),
+      ),
     )
     .orderBy(asc(fixtureNotes.id))
     .limit(limit + 1)
     .all();
-  return toPage(scope, "notes", rows, limit);
+  return toPage(workspaceScope, "notes", rows, limit);
 }
 
-export function listNotesWithFolder(db: Db, scope: WorkspaceScope): { body: string; folderName: string }[] {
+export function listNotesWithFolder(
+  db: Db,
+  workspaceScope: WorkspaceScope,
+): { body: string; folderName: string }[] {
   return db
     .select({ body: fixtureNotes.body, folderName: fixtureFolders.name })
     .from(fixtureNotes)
     .innerJoin(
       fixtureFolders,
       and(
-        inWorkspace(fixtureFolders, scope),
+        inWorkspace(fixtureFolders, workspaceScope),
         eq(fixtureFolders.workspaceId, fixtureNotes.workspaceId),
         eq(fixtureFolders.id, fixtureNotes.folderId),
       ),
     )
-    .where(inWorkspace(fixtureNotes, scope))
+    .where(inWorkspace(fixtureNotes, workspaceScope))
     .orderBy(asc(fixtureNotes.id))
     .all();
 }
 
-export function updateNote(db: Db, scope: WorkspaceScope, id: string, patch: { body: string }): boolean {
+export function updateNote(
+  db: Db,
+  workspaceScope: WorkspaceScope,
+  id: string,
+  patch: { body: string },
+): boolean {
   return (
     db
       .update(fixtureNotes)
       .set({ body: patch.body })
-      .where(and(inWorkspace(fixtureNotes, scope), eq(fixtureNotes.id, id)))
+      .where(and(inWorkspace(fixtureNotes, workspaceScope), eq(fixtureNotes.id, id)))
       .returning({ id: fixtureNotes.id })
       .all().length > 0
   );
 }
 
-export function deleteNote(db: Db, scope: WorkspaceScope, id: string): boolean {
+export function deleteNote(db: Db, workspaceScope: WorkspaceScope, id: string): boolean {
   return (
     db
       .delete(fixtureNotes)
-      .where(and(inWorkspace(fixtureNotes, scope), eq(fixtureNotes.id, id)))
+      .where(and(inWorkspace(fixtureNotes, workspaceScope), eq(fixtureNotes.id, id)))
       .returning({ id: fixtureNotes.id })
       .all().length > 0
   );

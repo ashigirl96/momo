@@ -21,17 +21,17 @@ const LIST = "conversations";
 
 export function createConversation(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   input: { primaryBotId: string; now: Date },
 ): Conversation | undefined {
   return db.transaction((tx) => {
-    const bot = getBot(tx, scope, input.primaryBotId);
+    const bot = getBot(tx, workspaceScope, input.primaryBotId);
     if (!bot) return undefined;
     const row = tx
       .insert(conversations)
       .values({
         id: `conversation_${Bun.randomUUIDv7()}`,
-        workspaceId: scope.workspaceId,
+        workspaceId: workspaceScope.workspaceId,
         createdAt: input.now,
       })
       .returning()
@@ -39,7 +39,7 @@ export function createConversation(
     tx.insert(conversationParticipants)
       .values({
         id: `participant_${Bun.randomUUIDv7()}`,
-        workspaceId: scope.workspaceId,
+        workspaceId: workspaceScope.workspaceId,
         conversationId: row.id,
         botId: bot.id,
         role: "primary",
@@ -56,7 +56,7 @@ export function createConversation(
   });
 }
 
-function summaries(db: Db, scope: WorkspaceScope) {
+function summaries(db: Db, workspaceScope: WorkspaceScope) {
   return db
     .select({
       id: conversations.id,
@@ -68,7 +68,7 @@ function summaries(db: Db, scope: WorkspaceScope) {
     .innerJoin(
       conversationParticipants,
       and(
-        inWorkspace(conversationParticipants, scope),
+        inWorkspace(conversationParticipants, workspaceScope),
         eq(conversationParticipants.workspaceId, conversations.workspaceId),
         eq(conversationParticipants.conversationId, conversations.id),
         eq(conversationParticipants.role, "primary"),
@@ -77,15 +77,24 @@ function summaries(db: Db, scope: WorkspaceScope) {
     .$dynamic();
 }
 
-export function getConversation(db: Db, scope: WorkspaceScope, id: string): Conversation | undefined {
-  const summary = summaries(db, scope)
-    .where(and(inWorkspace(conversations, scope), eq(conversations.id, id)))
+export function getConversation(
+  db: Db,
+  workspaceScope: WorkspaceScope,
+  id: string,
+): Conversation | undefined {
+  const summary = summaries(db, workspaceScope)
+    .where(and(inWorkspace(conversations, workspaceScope), eq(conversations.id, id)))
     .get();
   if (!summary) return undefined;
   const participants = db
     .select({ botId: conversationParticipants.botId, role: conversationParticipants.role })
     .from(conversationParticipants)
-    .where(and(inWorkspace(conversationParticipants, scope), eq(conversationParticipants.conversationId, id)))
+    .where(
+      and(
+        inWorkspace(conversationParticipants, workspaceScope),
+        eq(conversationParticipants.conversationId, id),
+      ),
+    )
     .orderBy(asc(conversationParticipants.id))
     .all();
   return { ...summary, participants };
@@ -93,43 +102,50 @@ export function getConversation(db: Db, scope: WorkspaceScope, id: string): Conv
 
 export function listConversations(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   options: { cursor?: string; limit?: number },
 ): Page<ConversationSummary> {
   const limit = pageLimit(options.limit);
-  const before = options.cursor === undefined ? undefined : decodeCursor(scope, LIST, options.cursor);
-  const rows = summaries(db, scope)
+  const before =
+    options.cursor === undefined ? undefined : decodeCursor(workspaceScope, LIST, options.cursor);
+  const rows = summaries(db, workspaceScope)
     .where(
-      and(inWorkspace(conversations, scope), before === undefined ? undefined : lt(conversations.id, before)),
+      and(
+        inWorkspace(conversations, workspaceScope),
+        before === undefined ? undefined : lt(conversations.id, before),
+      ),
     )
     .orderBy(desc(conversations.id))
     .limit(limit + 1)
     .all();
-  return toPage(scope, LIST, rows, limit);
+  return toPage(workspaceScope, LIST, rows, limit);
 }
 
 export function conversationIds(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   filter: { primaryBotId?: string } = {},
 ): string[] {
-  const query = summaries(db, scope);
+  const query = summaries(db, workspaceScope);
   const rows = (
     filter.primaryBotId === undefined
-      ? query.where(inWorkspace(conversations, scope))
+      ? query.where(inWorkspace(conversations, workspaceScope))
       : query.where(
-          and(inWorkspace(conversations, scope), eq(conversationParticipants.botId, filter.primaryBotId)),
+          and(
+            inWorkspace(conversations, workspaceScope),
+            eq(conversationParticipants.botId, filter.primaryBotId),
+          ),
         )
   ).all();
   return rows.map((row) => row.id);
 }
 
 /** Other domains' rows that reference them must go first; their foreign keys refuse otherwise. */
-export function deleteConversations(db: Db, scope: WorkspaceScope, ids: string[]): number {
+export function deleteConversations(db: Db, workspaceScope: WorkspaceScope, ids: string[]): number {
   if (ids.length === 0) return 0;
   return db
     .delete(conversations)
-    .where(and(inWorkspace(conversations, scope), inArray(conversations.id, ids)))
+    .where(and(inWorkspace(conversations, workspaceScope), inArray(conversations.id, ids)))
     .returning({ id: conversations.id })
     .all().length;
 }

@@ -28,8 +28,8 @@ afterEach(() => {
   testDb.close();
 });
 
-const bot = (scope: WorkspaceScope, name = "仕事 Bot") =>
-  createBot(db(), scope, { ...settings, name, tools: [], now });
+const bot = (workspaceScope: WorkspaceScope, name = "仕事 Bot") =>
+  createBot(db(), workspaceScope, { ...settings, name, tools: [], now });
 
 describe("Conversations", () => {
   test("a Conversation has its Bot as the one primary participant, after reopening the database", () => {

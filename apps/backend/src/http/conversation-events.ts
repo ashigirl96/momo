@@ -14,14 +14,14 @@ function parseEventId(value: string | null): number | undefined | "invalid" {
 
 /** Re-checks the Login and Workspace before every batch and every `streamCheckMs`, so a revoked Login or deleted Workspace gets nothing more. */
 export function conversationEvents(
-  { req, server, scope, reauthorize }: WorkspaceScopedRequest,
+  { req, server, workspaceScope, reauthorize }: WorkspaceScopedRequest,
   conversationId: string,
   ctx: RouteContext,
 ): Response {
   const resumed = parseEventId(req.headers.get("last-event-id"));
   const first = parseEventId(new URL(req.url).searchParams.get("after"));
   if (resumed === "invalid" || first === "invalid") return apiError("bad_request", "invalid event id");
-  let last = resumed ?? first ?? streamAfter(ctx.db, scope, conversationId);
+  let last = resumed ?? first ?? streamAfter(ctx.db, workspaceScope, conversationId);
 
   // Bun's 10 s idle timeout would otherwise cut a quiet stream.
   server.timeout(req, 0);
@@ -61,7 +61,7 @@ export function conversationEvents(
         if (!authorized()) return close();
         controller.enqueue(encoder.encode(": ok\n\n"));
       };
-      const unsubscribe = ctx.hub.subscribe(scope, conversationId, flush, close);
+      const unsubscribe = ctx.hub.subscribe(workspaceScope, conversationId, flush, close);
       const timer = setInterval(check, ctx.streamCheckMs);
       cleanup = () => {
         clearInterval(timer);

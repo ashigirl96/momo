@@ -40,7 +40,7 @@ function proposalFrom(messages: unknown[]): BotSettingsProposal | undefined {
 }
 
 export async function botRoute(
-  { req, rest, scope, body }: WorkspaceScopedRequest,
+  { req, rest, workspaceScope, body }: WorkspaceScopedRequest,
   ctx: RouteContext,
 ): Promise<Response | undefined> {
   if (rest === "/bot-proposals" && req.method === "POST") {
@@ -54,14 +54,16 @@ export async function botRoute(
   if (rest === "/bots") {
     if (req.method === "GET") {
       return paged(() => {
-        const page = listBots(ctx.db, scope, listQuery(req));
+        const page = listBots(ctx.db, workspaceScope, listQuery(req));
         return json({ bots: page.items.map(toBotItem), nextCursor: page.nextCursor } satisfies BotList);
       });
     }
     if (req.method === "POST") {
       const input = CreateBotRequest.safeParse(await body());
       if (!input.success) return apiError("bad_request", "expected { name, instructions, model, tools }");
-      return json(toBotItem(createBot(ctx.db, scope, { ...input.data, now: ctx.now() })), { status: 201 });
+      return json(toBotItem(createBot(ctx.db, workspaceScope, { ...input.data, now: ctx.now() })), {
+        status: 201,
+      });
     }
     return undefined;
   }
@@ -71,17 +73,17 @@ export async function botRoute(
   const id = decode(match[1]!);
   if (id === undefined) return apiError("not_found", "no such Bot");
   if (req.method === "GET") {
-    const bot = getBot(ctx.db, scope, id);
+    const bot = getBot(ctx.db, workspaceScope, id);
     return bot ? json(toBotItem(bot)) : apiError("not_found", "no such Bot");
   }
   if (req.method === "PATCH") {
     const input = UpdateBotRequest.safeParse(await body());
     if (!input.success)
       return apiError("bad_request", "expected some of { name, instructions, model, tools }");
-    const updated = updateBotSettings(ctx.db, scope, id, { ...input.data, now: ctx.now() });
+    const updated = updateBotSettings(ctx.db, workspaceScope, id, { ...input.data, now: ctx.now() });
     if (!updated) return apiError("not_found", "no such Bot");
     ctx.runs.stopCancelled(updated.cancelledRunning);
-    for (const session of updated.closed) ctx.hub.notify(scope.workspaceId, session.conversationId);
+    for (const session of updated.closed) ctx.hub.notify(workspaceScope.workspaceId, session.conversationId);
     return json({
       bot: toBotItem(updated.bot),
       sessionsRenewed: updated.instructionsChanged,

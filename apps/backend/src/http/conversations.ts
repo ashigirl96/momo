@@ -44,12 +44,12 @@ export async function conversationRoute(
   request: WorkspaceScopedRequest,
   ctx: RouteContext,
 ): Promise<Response | undefined> {
-  const { req, rest, scope, body } = request;
+  const { req, rest, workspaceScope, body } = request;
 
   if (rest === "/conversations") {
     if (req.method === "GET")
       return paged(() => {
-        const page = listConversations(ctx.db, scope, listQuery(req));
+        const page = listConversations(ctx.db, workspaceScope, listQuery(req));
         return json({
           conversations: page.items.map(toConversationItem),
           nextCursor: page.nextCursor,
@@ -58,7 +58,7 @@ export async function conversationRoute(
     if (req.method === "POST") {
       const input = CreateConversationRequest.safeParse(await body());
       if (!input.success) return apiError("bad_request", "expected { primaryBotId }");
-      const conversation = createConversation(ctx.db, scope, { ...input.data, now: ctx.now() });
+      const conversation = createConversation(ctx.db, workspaceScope, { ...input.data, now: ctx.now() });
       if (!conversation) return apiError("not_found", "no such Bot");
       return json(toConversationItem(conversation), { status: 201 });
     }
@@ -69,11 +69,11 @@ export async function conversationRoute(
   if (run) {
     const id = decode(run[1]!);
     if (run[2] === undefined && req.method === "GET") {
-      const found = id === undefined ? undefined : getRun(ctx.db, scope, id);
+      const found = id === undefined ? undefined : getRun(ctx.db, workspaceScope, id);
       return found ? json(toRunItem(found)) : apiError("not_found", "no such Run");
     }
     if (run[2] === "/cancel" && req.method === "POST") {
-      const cancelled = id === undefined ? undefined : ctx.runs.cancel(scope, id);
+      const cancelled = id === undefined ? undefined : ctx.runs.cancel(workspaceScope, id);
       return cancelled ? json(toRunItem(cancelled)) : apiError("not_found", "no such Run");
     }
     return undefined;
@@ -82,7 +82,7 @@ export async function conversationRoute(
   const match = CONVERSATION.exec(rest) ?? CONVERSATION_ATTACHMENT.exec(rest);
   if (!match) return undefined;
   const id = decode(match[1]!);
-  const conversation = id === undefined ? undefined : getConversation(ctx.db, scope, id);
+  const conversation = id === undefined ? undefined : getConversation(ctx.db, workspaceScope, id);
   if (!conversation) return apiError("not_found", "no such Conversation");
   const sub = match[2];
 
@@ -92,9 +92,9 @@ export async function conversationRoute(
     const found =
       attachmentId === undefined
         ? undefined
-        : getAttachment(ctx.db, scope, { conversationId: conversation.id, attachmentId });
+        : getAttachment(ctx.db, workspaceScope, { conversationId: conversation.id, attachmentId });
     return found
-      ? attachmentResponse(ctx.attachments, scope, found)
+      ? attachmentResponse(ctx.attachments, workspaceScope, found)
       : apiError("not_found", "no such Attachment");
   }
 
@@ -107,9 +107,9 @@ export async function conversationRoute(
   if (sub === "/messages" && req.method === "GET")
     return paged(() => {
       const page = ctx.db.transaction((tx) => {
-        const after = streamAfter(tx, scope, conversation.id);
-        const sessions = listSessions(tx, scope, conversation.id);
-        return { after, sessions, page: listMessages(tx, scope, conversation.id, listQuery(req))! };
+        const after = streamAfter(tx, workspaceScope, conversation.id);
+        const sessions = listSessions(tx, workspaceScope, conversation.id);
+        return { after, sessions, page: listMessages(tx, workspaceScope, conversation.id, listQuery(req))! };
       });
       return json({
         messages: page.page.items.map(toMessageItem),
@@ -120,10 +120,10 @@ export async function conversationRoute(
     });
 
   if (sub === "/reset" && req.method === "POST") {
-    const reset = resetSession(ctx.db, scope, { conversationId: conversation.id, now: ctx.now() });
+    const reset = resetSession(ctx.db, workspaceScope, { conversationId: conversation.id, now: ctx.now() });
     if (!reset) return apiError("not_found", "no such Conversation");
     ctx.runs.stopCancelled(reset.cancelledRunning);
-    ctx.hub.notify(scope.workspaceId, conversation.id);
+    ctx.hub.notify(workspaceScope.workspaceId, conversation.id);
     return json({
       closed: reset.closed && toSessionItem(reset.closed),
     } satisfies ResetSessionResponse);
@@ -132,15 +132,15 @@ export async function conversationRoute(
   if (sub === "/messages" && req.method === "POST") {
     const input = await readPostedMessage(req, body);
     if (input instanceof Response) return input;
-    const posted = postOwnerMessage(ctx.db, scope, {
+    const posted = postOwnerMessage(ctx.db, workspaceScope, {
       conversationId: conversation.id,
       text: input.text,
       now: ctx.now(),
       attachments: { files: ctx.attachments, newAttachments: input.newAttachments },
     });
     if (!posted) return apiError("not_found", "no such Conversation");
-    ctx.hub.notify(scope.workspaceId, conversation.id);
-    ctx.runs.kick(scope, posted.run.sessionId);
+    ctx.hub.notify(workspaceScope.workspaceId, conversation.id);
+    ctx.runs.kick(workspaceScope, posted.run.sessionId);
     return json(
       { message: toMessageItem(posted.message), run: toRunItem(posted.run) } satisfies PostMessageResponse,
       { status: 201 },

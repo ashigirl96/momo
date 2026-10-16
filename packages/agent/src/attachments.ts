@@ -72,14 +72,14 @@ function ownerOnlyDir(path: string, create: boolean): boolean {
 export class AttachmentFiles {
   constructor(readonly root: string) {}
 
-  #dir(scope: WorkspaceScope, create: boolean): string | undefined {
-    const dir = join(this.root, segment(scope.workspaceId));
+  #dir(workspaceScope: WorkspaceScope, create: boolean): string | undefined {
+    const dir = join(this.root, segment(workspaceScope.workspaceId));
     if (!ownerOnlyDir(this.root, create) || !ownerOnlyDir(dir, create)) return undefined;
     return dir;
   }
 
-  write(scope: WorkspaceScope, id: string, bytes: Uint8Array): void {
-    const path = join(this.#dir(scope, true)!, segment(id));
+  write(workspaceScope: WorkspaceScope, id: string, bytes: Uint8Array): void {
+    const path = join(this.#dir(workspaceScope, true)!, segment(id));
     const fd = openSync(
       path,
       constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
@@ -93,8 +93,8 @@ export class AttachmentFiles {
     }
   }
 
-  read(scope: WorkspaceScope, id: string): Uint8Array<ArrayBuffer> | undefined {
-    const dir = this.#dir(scope, false);
+  read(workspaceScope: WorkspaceScope, id: string): Uint8Array<ArrayBuffer> | undefined {
+    const dir = this.#dir(workspaceScope, false);
     if (!dir) return undefined;
     let fd: number;
     try {
@@ -111,12 +111,12 @@ export class AttachmentFiles {
     }
   }
 
-  remove(scope: WorkspaceScope, id: string): void {
-    rmSync(join(this.root, segment(scope.workspaceId), segment(id)), { force: true });
+  remove(workspaceScope: WorkspaceScope, id: string): void {
+    rmSync(join(this.root, segment(workspaceScope.workspaceId), segment(id)), { force: true });
   }
 
-  removeWorkspace(scope: WorkspaceScope): void {
-    rmSync(join(this.root, segment(scope.workspaceId)), { recursive: true, force: true });
+  removeWorkspace(workspaceScope: WorkspaceScope): void {
+    rmSync(join(this.root, segment(workspaceScope.workspaceId)), { recursive: true, force: true });
   }
 
   /** Removes every id-named entry that `keep` does not list; other names are left alone. */
@@ -181,7 +181,7 @@ export function toAttachmentItem(attachment: Attachment): AttachmentItem {
 /** The caller runs this inside the message's transaction and removes `written` files if it fails. */
 export function insertAttachments(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   input: {
     messageId: string;
     files: AttachmentFiles;
@@ -193,12 +193,12 @@ export function insertAttachments(
   return input.newAttachments.map((added) => {
     const id = `attachment_${Bun.randomUUIDv7()}`;
     input.written.push(id);
-    input.files.write(scope, id, added.bytes);
+    input.files.write(workspaceScope, id, added.bytes);
     const row = db
       .insert(attachments)
       .values({
         id,
-        workspaceId: scope.workspaceId,
+        workspaceId: workspaceScope.workspaceId,
         messageId: input.messageId,
         name: attachmentName(added.name),
         contentType: attachmentContentType(added.contentType),
@@ -213,7 +213,7 @@ export function insertAttachments(
 
 export function attachmentsOf(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   messageIds: string[],
 ): Map<string, Attachment[]> {
   const byMessage = new Map<string, Attachment[]>();
@@ -221,7 +221,7 @@ export function attachmentsOf(
   const rows = db
     .select()
     .from(attachments)
-    .where(and(inWorkspace(attachments, scope), inArray(attachments.messageId, messageIds)))
+    .where(and(inWorkspace(attachments, workspaceScope), inArray(attachments.messageId, messageIds)))
     .orderBy(asc(attachments.id))
     .all();
   for (const row of rows) {
@@ -234,7 +234,7 @@ export function attachmentsOf(
 
 export function getAttachment(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   input: { conversationId: string; attachmentId: string },
 ): Attachment | undefined {
   const row = db
@@ -243,14 +243,14 @@ export function getAttachment(
     .innerJoin(
       messages,
       and(
-        inWorkspace(messages, scope),
+        inWorkspace(messages, workspaceScope),
         eq(messages.workspaceId, attachments.workspaceId),
         eq(messages.id, attachments.messageId),
       ),
     )
     .where(
       and(
-        inWorkspace(attachments, scope),
+        inWorkspace(attachments, workspaceScope),
         eq(attachments.id, input.attachmentId),
         eq(messages.conversationId, input.conversationId),
       ),
@@ -261,18 +261,22 @@ export function getAttachment(
 
 export function readAttachment(
   files: AttachmentFiles,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   attachment: Attachment,
 ): Uint8Array<ArrayBuffer> | undefined {
-  return files.read(scope, attachment.id);
+  return files.read(workspaceScope, attachment.id);
 }
 
-export function removeAttachmentFiles(files: AttachmentFiles, scope: WorkspaceScope, ids: string[]): void {
-  for (const id of ids) files.remove(scope, id);
+export function removeAttachmentFiles(
+  files: AttachmentFiles,
+  workspaceScope: WorkspaceScope,
+  ids: string[],
+): void {
+  for (const id of ids) files.remove(workspaceScope, id);
 }
 
-export function removeWorkspaceAttachments(files: AttachmentFiles, scope: WorkspaceScope): void {
-  files.removeWorkspace(scope);
+export function removeWorkspaceAttachments(files: AttachmentFiles, workspaceScope: WorkspaceScope): void {
+  files.removeWorkspace(workspaceScope);
 }
 
 /** Removes Attachment files without a row, which a stop between a delete's commit and its file removal leaves behind. */

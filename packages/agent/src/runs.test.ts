@@ -30,12 +30,12 @@ let convA: Conversation;
 let convB: Conversation;
 
 function workspaceWithConversation(name: string): [WorkspaceScope, Conversation] {
-  const scope = resolveWorkspaceScope(db(), createWorkspace(db(), { name, now }).id, {
+  const workspaceScope = resolveWorkspaceScope(db(), createWorkspace(db(), { name, now }).id, {
     kind: "owner",
     loginId: `login_${name}`,
   })!;
-  const bot = createBot(db(), scope, { ...settings, name: `${name} の Bot`, tools: [], now });
-  return [scope, createConversation(db(), scope, { primaryBotId: bot.id, now })!];
+  const bot = createBot(db(), workspaceScope, { ...settings, name: `${name} の Bot`, tools: [], now });
+  return [workspaceScope, createConversation(db(), workspaceScope, { primaryBotId: bot.id, now })!];
 }
 
 beforeEach(() => {
@@ -48,11 +48,11 @@ afterEach(() => {
   testDb.close();
 });
 
-const post = (text: string, scope = a, conversation = convA) =>
-  postOwnerMessage(db(), scope, { conversationId: conversation.id, text, now });
+const post = (text: string, workspaceScope = a, conversation = convA) =>
+  postOwnerMessage(db(), workspaceScope, { conversationId: conversation.id, text, now });
 
-const kinds = (scope: WorkspaceScope, conversation: Conversation, after = 0) =>
-  eventsAfter(db(), scope, conversation.id, after).map((e) => e.event.kind);
+const kinds = (workspaceScope: WorkspaceScope, conversation: Conversation, after = 0) =>
+  eventsAfter(db(), workspaceScope, conversation.id, after).map((e) => e.event.kind);
 
 describe("posting an owner message", () => {
   test("queues a Run of the primary Bot in its Session, carrying the trusted ids and the owner", () => {

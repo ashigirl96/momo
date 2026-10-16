@@ -21,37 +21,37 @@ export function toRunItem(run: Run): RunItem {
   };
 }
 
-export function getRun(db: Db, scope: WorkspaceScope, id: string): Run | undefined {
+export function getRun(db: Db, workspaceScope: WorkspaceScope, id: string): Run | undefined {
   return db
     .select()
     .from(runs)
-    .where(and(inWorkspace(runs, scope), eq(runs.id, id)))
+    .where(and(inWorkspace(runs, workspaceScope), eq(runs.id, id)))
     .get();
 }
 
 /** The ids come from rows the caller already found in the Workspace. */
 export function queueRun(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   input: { conversationId: string; botId: string; sessionId: string; inputMessageId: string; now: Date },
 ): Run {
   const run = db
     .insert(runs)
     .values({
       id: `run_${Bun.randomUUIDv7()}`,
-      workspaceId: scope.workspaceId,
+      workspaceId: workspaceScope.workspaceId,
       conversationId: input.conversationId,
       botId: input.botId,
       sessionId: input.sessionId,
-      actorKind: scope.actor.kind,
-      actorLoginId: scope.actor.loginId,
+      actorKind: workspaceScope.actor.kind,
+      actorLoginId: workspaceScope.actor.loginId,
       inputMessageId: input.inputMessageId,
       status: "queued",
       createdAt: input.now,
     })
     .returning()
     .get();
-  appendEvent(db, scope, {
+  appendEvent(db, workspaceScope, {
     conversationId: run.conversationId,
     runId: run.id,
     event: { kind: "run_queued", run: toRunItem(run) },
@@ -63,12 +63,12 @@ export function queueRun(
 /** A Session runs its Runs one at a time so their effects are attributed to the right Run (ADR-0018). */
 export function startNextRun(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   sessionId: string,
   now: Date,
 ): StartedRun | undefined {
   return db.transaction((tx) => {
-    const inSession = and(inWorkspace(runs, scope), eq(runs.sessionId, sessionId));
+    const inSession = and(inWorkspace(runs, workspaceScope), eq(runs.sessionId, sessionId));
     if (
       tx
         .select({ id: runs.id })
@@ -87,16 +87,16 @@ export function startNextRun(
     const run = tx
       .update(runs)
       .set({ status: "running", startedAt: now })
-      .where(and(inWorkspace(runs, scope), eq(runs.id, next.id)))
+      .where(and(inWorkspace(runs, workspaceScope), eq(runs.id, next.id)))
       .returning()
       .get();
-    appendEvent(tx, scope, {
+    appendEvent(tx, workspaceScope, {
       conversationId: run.conversationId,
       runId: run.id,
       event: { kind: "run_started", runId: run.id },
       now,
     });
-    const inSessionMessages = conversationMessages(tx, scope, run.conversationId).filter(
+    const inSessionMessages = conversationMessages(tx, workspaceScope, run.conversationId).filter(
       (m) => m.sessionId === run.sessionId,
     );
     const inputAt = inSessionMessages.findIndex((m) => m.id === run.inputMessageId);
@@ -107,25 +107,25 @@ export function startNextRun(
   });
 }
 
-function runningRun(db: Db, scope: WorkspaceScope, runId: string): Run | undefined {
+function runningRun(db: Db, workspaceScope: WorkspaceScope, runId: string): Run | undefined {
   return db
     .select()
     .from(runs)
-    .where(and(inWorkspace(runs, scope), eq(runs.id, runId), eq(runs.status, "running")))
+    .where(and(inWorkspace(runs, workspaceScope), eq(runs.id, runId), eq(runs.status, "running")))
     .get();
 }
 
 export function appendRunDelta(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   runId: string,
   text: string,
   now: Date,
 ): boolean {
   return db.transaction((tx) => {
-    const run = runningRun(tx, scope, runId);
+    const run = runningRun(tx, workspaceScope, runId);
     if (!run) return false;
-    appendEvent(tx, scope, {
+    appendEvent(tx, workspaceScope, {
       conversationId: run.conversationId,
       runId: run.id,
       event: { kind: "run_delta", runId: run.id, text },
@@ -135,11 +135,11 @@ export function appendRunDelta(
   });
 }
 
-function streamedText(db: Db, scope: WorkspaceScope, runId: string): string {
+function streamedText(db: Db, workspaceScope: WorkspaceScope, runId: string): string {
   return db
     .select({ event: conversationEvents.event })
     .from(conversationEvents)
-    .where(and(inWorkspace(conversationEvents, scope), eq(conversationEvents.runId, runId)))
+    .where(and(inWorkspace(conversationEvents, workspaceScope), eq(conversationEvents.runId, runId)))
     .orderBy(asc(conversationEvents.id))
     .all()
     .map(({ event }) => (event.kind === "run_delta" ? event.text : ""))
@@ -147,10 +147,16 @@ function streamedText(db: Db, scope: WorkspaceScope, runId: string): string {
 }
 
 /** The streamed text becomes the Bot's message in the same transaction, so the history never shows the Run without it. */
-function endRun(db: Db, scope: WorkspaceScope, unfinished: Run, outcome: RunOutcome, now: Date): Run {
-  const text = streamedText(db, scope, unfinished.id);
+function endRun(
+  db: Db,
+  workspaceScope: WorkspaceScope,
+  unfinished: Run,
+  outcome: RunOutcome,
+  now: Date,
+): Run {
+  const text = streamedText(db, workspaceScope, unfinished.id);
   if (outcome !== "failed" && text !== "") {
-    const message = insertMessage(db, scope, {
+    const message = insertMessage(db, workspaceScope, {
       conversationId: unfinished.conversationId,
       author: {
         kind: "bot",
@@ -162,7 +168,7 @@ function endRun(db: Db, scope: WorkspaceScope, unfinished: Run, outcome: RunOutc
       text,
       now,
     });
-    appendEvent(db, scope, {
+    appendEvent(db, workspaceScope, {
       conversationId: unfinished.conversationId,
       runId: unfinished.id,
       event: { kind: "message_created", message: toMessageItem(message) },
@@ -172,10 +178,10 @@ function endRun(db: Db, scope: WorkspaceScope, unfinished: Run, outcome: RunOutc
   const run = db
     .update(runs)
     .set({ status: outcome, finishedAt: now })
-    .where(and(inWorkspace(runs, scope), eq(runs.id, unfinished.id)))
+    .where(and(inWorkspace(runs, workspaceScope), eq(runs.id, unfinished.id)))
     .returning()
     .get();
-  appendEvent(db, scope, {
+  appendEvent(db, workspaceScope, {
     conversationId: run.conversationId,
     runId: run.id,
     event: { kind: "run_finished", runId: run.id, status: run.status },
@@ -186,39 +192,44 @@ function endRun(db: Db, scope: WorkspaceScope, unfinished: Run, outcome: RunOutc
 
 export function finishRun(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   runId: string,
   input: { outcome: RunOutcome; now: Date },
 ): Run | undefined {
   return db.transaction((tx) => {
-    const running = runningRun(tx, scope, runId);
-    return running && endRun(tx, scope, running, input.outcome, input.now);
+    const running = runningRun(tx, workspaceScope, runId);
+    return running && endRun(tx, workspaceScope, running, input.outcome, input.now);
   });
 }
 
 /** app.db records the stop at once, so a reload shows it whether or not the runner answers the cancel. */
-export function cancelRun(db: Db, scope: WorkspaceScope, runId: string, now: Date): Run | undefined {
+export function cancelRun(db: Db, workspaceScope: WorkspaceScope, runId: string, now: Date): Run | undefined {
   return db.transaction((tx) => {
-    const run = getRun(tx, scope, runId);
+    const run = getRun(tx, workspaceScope, runId);
     if (!run || (run.status !== "queued" && run.status !== "running")) return run;
-    return endRun(tx, scope, run, "cancelled", now);
+    return endRun(tx, workspaceScope, run, "cancelled", now);
   });
 }
 
-export function cancelSessionRuns(db: Db, scope: WorkspaceScope, sessionId: string, now: Date): string[] {
+export function cancelSessionRuns(
+  db: Db,
+  workspaceScope: WorkspaceScope,
+  sessionId: string,
+  now: Date,
+): string[] {
   const unfinished = db
     .select()
     .from(runs)
     .where(
       and(
-        inWorkspace(runs, scope),
+        inWorkspace(runs, workspaceScope),
         eq(runs.sessionId, sessionId),
         inArray(runs.status, ["queued", "running"]),
       ),
     )
     .orderBy(asc(runs.id))
     .all();
-  for (const run of unfinished) endRun(db, scope, run, "cancelled", now);
+  for (const run of unfinished) endRun(db, workspaceScope, run, "cancelled", now);
   return unfinished.filter((run) => run.status === "running").map((run) => run.id);
 }
 

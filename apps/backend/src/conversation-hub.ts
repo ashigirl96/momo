@@ -8,12 +8,12 @@ export class ConversationHub {
   readonly #closers = new Set<Listener>();
 
   subscribe(
-    scope: WorkspaceScope,
+    workspaceScope: WorkspaceScope,
     conversationId: string,
     listener: Listener,
     onClose: Listener,
   ): () => void {
-    const key = `${scope.workspaceId}/${conversationId}`;
+    const key = `${workspaceScope.workspaceId}/${conversationId}`;
     const set = this.#listeners.get(key) ?? new Set();
     set.add(listener);
     this.#listeners.set(key, set);

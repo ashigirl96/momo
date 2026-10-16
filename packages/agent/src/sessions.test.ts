@@ -36,9 +36,15 @@ function workspace(name: string): WorkspaceScope {
   })!;
 }
 
-function botWithConversation(scope: WorkspaceScope, name: string): [Bot, Conversation] {
-  const bot = createBot(db(), scope, { name, instructions: "手伝う", model: "sonnet", tools: [], now });
-  return [bot, createConversation(db(), scope, { primaryBotId: bot.id, now })!];
+function botWithConversation(workspaceScope: WorkspaceScope, name: string): [Bot, Conversation] {
+  const bot = createBot(db(), workspaceScope, {
+    name,
+    instructions: "手伝う",
+    model: "sonnet",
+    tools: [],
+    now,
+  });
+  return [bot, createConversation(db(), workspaceScope, { primaryBotId: bot.id, now })!];
 }
 
 beforeEach(() => {
@@ -53,13 +59,13 @@ afterEach(() => {
   testDb.close();
 });
 
-const post = (text: string, scope = a, conversation = convA) =>
-  postOwnerMessage(db(), scope, { conversationId: conversation.id, text, now })!;
+const post = (text: string, workspaceScope = a, conversation = convA) =>
+  postOwnerMessage(db(), workspaceScope, { conversationId: conversation.id, text, now })!;
 
-function reply(scope: WorkspaceScope, sessionId: string, text: string) {
-  const started = startNextRun(db(), scope, sessionId, now)!;
-  appendRunDelta(db(), scope, started.run.id, text, now);
-  finishRun(db(), scope, started.run.id, { outcome: "completed", now });
+function reply(workspaceScope: WorkspaceScope, sessionId: string, text: string) {
+  const started = startNextRun(db(), workspaceScope, sessionId, now)!;
+  appendRunDelta(db(), workspaceScope, started.run.id, text, now);
+  finishRun(db(), workspaceScope, started.run.id, { outcome: "completed", now });
   return started;
 }
 

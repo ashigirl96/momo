@@ -35,16 +35,16 @@ let testDb: TestDatabase;
 const db = () => drizzle({ client: testDb.sqlite });
 let runner: ScriptedRunner;
 let loop: RunLoop;
-let scope: WorkspaceScope;
+let workspaceScope: WorkspaceScope;
 let bot: Bot;
 
 beforeEach(() => {
   testDb = migratedTestDatabase([workspaceMigrations, agentMigrations, memoryMigrations]);
-  scope = resolveWorkspaceScope(db(), createWorkspace(db(), { name: "A", now }).id, {
+  workspaceScope = resolveWorkspaceScope(db(), createWorkspace(db(), { name: "A", now }).id, {
     kind: "owner",
     loginId: "login_a",
   })!;
-  bot = createBot(db(), scope, {
+  bot = createBot(db(), workspaceScope, {
     name: "Bot",
     instructions: "手伝う",
     model: "sonnet",
@@ -61,9 +61,13 @@ afterEach(() => {
 });
 
 async function startRun() {
-  const conversation = createConversation(db(), scope, { primaryBotId: bot.id, now })!;
-  const { run } = postOwnerMessage(db(), scope, { conversationId: conversation.id, text: "やあ", now })!;
-  loop.kick(scope, run.sessionId);
+  const conversation = createConversation(db(), workspaceScope, { primaryBotId: bot.id, now })!;
+  const { run } = postOwnerMessage(db(), workspaceScope, {
+    conversationId: conversation.id,
+    text: "やあ",
+    now,
+  })!;
+  loop.kick(workspaceScope, run.sessionId);
   await Bun.sleep(0);
   return { runId: run.id, entry: runner.mailboxes.at(-1)! };
 }
@@ -94,7 +98,7 @@ describe("memory tool requests on a Session mailbox", () => {
       tool: { kind: "memory_write", item },
     });
 
-    const [written] = listMemoryItems(db(), scope, bot.id, {}).items;
+    const [written] = listMemoryItems(db(), workspaceScope, bot.id, {}).items;
     expect(result).toEqual({ kind: "memory_written", id: written!.id });
     expect(written).toMatchObject({ body: "合言葉はさくら", createdRunId: runId, createdBy: "bot" });
     expect(entry.inbound.at(-1)).toMatchObject({ kind: "tool_result", runId, requestId: "req_1" });
@@ -137,7 +141,7 @@ describe("memory tool requests on a Session mailbox", () => {
 
     expect(crossed).toEqual({ kind: "error", error: "not_in_run", message: expect.any(String) });
     expect(second.entry.inbound.filter((m) => m.kind === "tool_result")).toEqual([]);
-    expect(listMemoryItems(db(), scope, bot.id, {}).items).toEqual([]);
+    expect(listMemoryItems(db(), workspaceScope, bot.id, {}).items).toEqual([]);
   });
 
   test("a request after its Run finished writes nothing", async () => {
@@ -157,7 +161,7 @@ describe("memory tool requests on a Session mailbox", () => {
     });
 
     expect(result).toMatchObject({ kind: "error", error: "not_in_run" });
-    expect(listMemoryItems(db(), scope, bot.id, {}).items).toEqual([]);
+    expect(listMemoryItems(db(), workspaceScope, bot.id, {}).items).toEqual([]);
   });
 
   test("a request that fails the wire schema is ignored", async () => {
@@ -172,6 +176,6 @@ describe("memory tool requests on a Session mailbox", () => {
     await Bun.sleep(0);
 
     expect(entry.inbound.filter((m) => m.kind === "tool_result")).toEqual([]);
-    expect(listMemoryItems(db(), scope, bot.id, {}).items).toEqual([]);
+    expect(listMemoryItems(db(), workspaceScope, bot.id, {}).items).toEqual([]);
   });
 });

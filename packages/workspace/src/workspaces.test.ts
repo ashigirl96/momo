@@ -51,10 +51,10 @@ describe("WorkspaceScope", () => {
   test("resolves only for a Workspace that exists", () => {
     const workspace = createWorkspace(db(), { name: "個人", now: t0 });
 
-    const scope = resolveWorkspaceScope(db(), workspace.id, owner);
-    expect(scope?.workspace).toEqual(workspace);
-    expect(scope?.workspaceId).toBe(workspace.id);
-    expect(scope?.actor).toEqual(owner);
+    const workspaceScope = resolveWorkspaceScope(db(), workspace.id, owner);
+    expect(workspaceScope?.workspace).toEqual(workspace);
+    expect(workspaceScope?.workspaceId).toBe(workspace.id);
+    expect(workspaceScope?.actor).toEqual(owner);
   });
 
   test("does not fall back to another Workspace for an unknown or malformed id", () => {

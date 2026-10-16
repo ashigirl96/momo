@@ -21,6 +21,6 @@ export const sameWorkspaceParent = (
   parent: WorkspaceOwned,
 ) => foreignKey({ columns: [table.workspaceId, parentId], foreignColumns: [parent.workspaceId, parent.id] });
 
-/** The scope condition every read, update, delete and JOIN of a Workspace-owned table carries. */
-export const inWorkspace = (table: { workspaceId: AnySQLiteColumn }, scope: WorkspaceScope): SQL =>
-  eq(table.workspaceId, scope.workspaceId);
+/** The Workspace condition every read, update, delete and JOIN of a Workspace-owned table carries. */
+export const inWorkspace = (table: { workspaceId: AnySQLiteColumn }, workspaceScope: WorkspaceScope): SQL =>
+  eq(table.workspaceId, workspaceScope.workspaceId);

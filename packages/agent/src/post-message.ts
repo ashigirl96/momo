@@ -9,7 +9,7 @@ import { openSession } from "./sessions.ts";
 /** One transaction writes everything, and Attachment files written before a failure are removed again. */
 export function postOwnerMessage(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   input: {
     conversationId: string;
     text: string;
@@ -19,28 +19,28 @@ export function postOwnerMessage(
 ): { message: Message; run: Run } | undefined {
   const written: string[] = [];
   try {
-    return post(db, scope, input, written);
+    return post(db, workspaceScope, input, written);
   } catch (error) {
-    for (const id of written) input.attachments!.files.remove(scope, id);
+    for (const id of written) input.attachments!.files.remove(workspaceScope, id);
     throw error;
   }
 }
 
 function post(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   input: Parameters<typeof postOwnerMessage>[2],
   written: string[],
 ): { message: Message; run: Run } | undefined {
   return db.transaction((tx) => {
-    const conversation = getConversation(tx, scope, input.conversationId);
+    const conversation = getConversation(tx, workspaceScope, input.conversationId);
     if (!conversation) return undefined;
-    const session = openSession(tx, scope, {
+    const session = openSession(tx, workspaceScope, {
       conversationId: conversation.id,
       botId: conversation.primaryBotId,
       now: input.now,
     });
-    const inserted = insertMessage(tx, scope, {
+    const inserted = insertMessage(tx, workspaceScope, {
       conversationId: conversation.id,
       author: { kind: "owner" },
       sessionId: session.id,
@@ -50,7 +50,7 @@ function post(
     const message: Message = {
       ...inserted,
       attachments: input.attachments
-        ? insertAttachments(tx, scope, {
+        ? insertAttachments(tx, workspaceScope, {
             messageId: inserted.id,
             ...input.attachments,
             now: input.now,
@@ -58,12 +58,12 @@ function post(
           })
         : [],
     };
-    appendEvent(tx, scope, {
+    appendEvent(tx, workspaceScope, {
       conversationId: conversation.id,
       event: { kind: "message_created", message: toMessageItem(message) },
       now: input.now,
     });
-    const run = queueRun(tx, scope, {
+    const run = queueRun(tx, workspaceScope, {
       conversationId: conversation.id,
       botId: conversation.primaryBotId,
       sessionId: session.id,

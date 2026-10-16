@@ -56,7 +56,7 @@ function toMessage({ message: row, writtenBy, answeredBy }: JoinedRow): Message 
 const answering = alias(runs, "answering");
 
 /** Both joins are scoped like the messages. */
-function selectMessages(db: Db, scope: WorkspaceScope) {
+function selectMessages(db: Db, workspaceScope: WorkspaceScope) {
   return db
     .select({
       message: messages,
@@ -66,22 +66,26 @@ function selectMessages(db: Db, scope: WorkspaceScope) {
     .from(messages)
     .leftJoin(
       runs,
-      and(inWorkspace(runs, scope), eq(runs.workspaceId, messages.workspaceId), eq(runs.id, messages.runId)),
+      and(
+        inWorkspace(runs, workspaceScope),
+        eq(runs.workspaceId, messages.workspaceId),
+        eq(runs.id, messages.runId),
+      ),
     )
     .leftJoin(
       answering,
       and(
-        inWorkspace(answering, scope),
+        inWorkspace(answering, workspaceScope),
         eq(answering.workspaceId, messages.workspaceId),
         eq(answering.inputMessageId, messages.id),
       ),
     );
 }
 
-function withAttachments(db: Db, scope: WorkspaceScope, list: Message[]): Message[] {
+function withAttachments(db: Db, workspaceScope: WorkspaceScope, list: Message[]): Message[] {
   const byMessage = attachmentsOf(
     db,
-    scope,
+    workspaceScope,
     list.map((m) => m.id),
   );
   return list.map((m) => ({ ...m, attachments: byMessage.get(m.id) ?? [] }));
@@ -98,7 +102,7 @@ export function toMessageItem(message: Message): MessageItem {
 /** Callers check the Conversation, and the Bot's part in it, first. */
 export function insertMessage(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   input: { conversationId: string; author: MessageAuthor; sessionId: string; text: string; now: Date },
 ): Message {
   const bot = input.author.kind === "bot" ? input.author : undefined;
@@ -106,7 +110,7 @@ export function insertMessage(
     .insert(messages)
     .values({
       id: `message_${Bun.randomUUIDv7()}`,
-      workspaceId: scope.workspaceId,
+      workspaceId: workspaceScope.workspaceId,
       conversationId: input.conversationId,
       authorKind: input.author.kind,
       botId: bot?.botId,
@@ -127,29 +131,35 @@ export function insertMessage(
   };
 }
 
-export function conversationMessages(db: Db, scope: WorkspaceScope, conversationId: string): Message[] {
-  const list = selectMessages(db, scope)
-    .where(and(inWorkspace(messages, scope), eq(messages.conversationId, conversationId)))
+export function conversationMessages(
+  db: Db,
+  workspaceScope: WorkspaceScope,
+  conversationId: string,
+): Message[] {
+  const list = selectMessages(db, workspaceScope)
+    .where(and(inWorkspace(messages, workspaceScope), eq(messages.conversationId, conversationId)))
     .orderBy(asc(messages.id))
     .all()
     .map(toMessage);
-  return withAttachments(db, scope, list);
+  return withAttachments(db, workspaceScope, list);
 }
 
 export function listMessages(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   conversationId: string,
   options: { cursor?: string; limit?: number },
 ): Page<Message> | undefined {
   const after =
-    options.cursor === undefined ? undefined : decodeCursor(scope, listName(conversationId), options.cursor);
-  if (!getConversation(db, scope, conversationId)) return undefined;
+    options.cursor === undefined
+      ? undefined
+      : decodeCursor(workspaceScope, listName(conversationId), options.cursor);
+  if (!getConversation(db, workspaceScope, conversationId)) return undefined;
   const limit = pageLimit(options.limit);
-  const list = selectMessages(db, scope)
+  const list = selectMessages(db, workspaceScope)
     .where(
       and(
-        inWorkspace(messages, scope),
+        inWorkspace(messages, workspaceScope),
         eq(messages.conversationId, conversationId),
         after === undefined ? undefined : gt(messages.id, after),
       ),
@@ -158,6 +168,6 @@ export function listMessages(
     .limit(limit + 1)
     .all()
     .map(toMessage);
-  const page = toPage(scope, listName(conversationId), list, limit);
-  return { ...page, items: withAttachments(db, scope, page.items) };
+  const page = toPage(workspaceScope, listName(conversationId), list, limit);
+  return { ...page, items: withAttachments(db, workspaceScope, page.items) };
 }

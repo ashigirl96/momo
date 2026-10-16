@@ -32,7 +32,7 @@ export function toSessionItem(session: Session): SessionItem {
 
 function openSessionOf(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   conversationId: string,
   botId: string,
 ): Session | undefined {
@@ -41,7 +41,7 @@ function openSessionOf(
     .from(sessions)
     .where(
       and(
-        inWorkspace(sessions, scope),
+        inWorkspace(sessions, workspaceScope),
         eq(sessions.conversationId, conversationId),
         eq(sessions.botId, botId),
         eq(sessions.status, "open"),
@@ -50,20 +50,20 @@ function openSessionOf(
     .get();
 }
 
-/** Callers check that the Bot takes part in the scope's Conversation. */
+/** Callers check that the Bot takes part in the Workspace's Conversation. */
 export function openSession(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   input: { conversationId: string; botId: string; now: Date },
 ): Session {
-  const open = openSessionOf(db, scope, input.conversationId, input.botId);
+  const open = openSessionOf(db, workspaceScope, input.conversationId, input.botId);
   if (open) return open;
-  const bot = getBot(db, scope, input.botId)!;
+  const bot = getBot(db, workspaceScope, input.botId)!;
   return db
     .insert(sessions)
     .values({
       id: `session_${Bun.randomUUIDv7()}`,
-      workspaceId: scope.workspaceId,
+      workspaceId: workspaceScope.workspaceId,
       conversationId: input.conversationId,
       botId: input.botId,
       status: "open",
@@ -74,19 +74,19 @@ export function openSession(
     .get();
 }
 
-export function getSession(db: Db, scope: WorkspaceScope, id: string): Session | undefined {
+export function getSession(db: Db, workspaceScope: WorkspaceScope, id: string): Session | undefined {
   return db
     .select()
     .from(sessions)
-    .where(and(inWorkspace(sessions, scope), eq(sessions.id, id)))
+    .where(and(inWorkspace(sessions, workspaceScope), eq(sessions.id, id)))
     .get();
 }
 
-export function listSessions(db: Db, scope: WorkspaceScope, conversationId: string): Session[] {
+export function listSessions(db: Db, workspaceScope: WorkspaceScope, conversationId: string): Session[] {
   return db
     .select()
     .from(sessions)
-    .where(and(inWorkspace(sessions, scope), eq(sessions.conversationId, conversationId)))
+    .where(and(inWorkspace(sessions, workspaceScope), eq(sessions.conversationId, conversationId)))
     .orderBy(asc(sessions.id))
     .all();
 }
@@ -95,19 +95,19 @@ export type ClosedSessions = { closed: Session[]; cancelledRunning: string[] };
 
 function closeSession(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   open: Session,
   reason: SessionCloseReason,
   now: Date,
 ): { closed: Session; cancelledRunning: string[] } {
-  const cancelledRunning = cancelSessionRuns(db, scope, open.id, now);
+  const cancelledRunning = cancelSessionRuns(db, workspaceScope, open.id, now);
   const closed = db
     .update(sessions)
     .set({ status: "closed", closedAt: now, closedBy: reason })
-    .where(and(inWorkspace(sessions, scope), eq(sessions.id, open.id)))
+    .where(and(inWorkspace(sessions, workspaceScope), eq(sessions.id, open.id)))
     .returning()
     .get();
-  appendEvent(db, scope, {
+  appendEvent(db, workspaceScope, {
     conversationId: closed.conversationId,
     event: { kind: "session_closed", session: toSessionItem(closed) },
     now,
@@ -117,42 +117,52 @@ function closeSession(
 
 export function resetSession(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   input: { conversationId: string; now: Date },
 ): { closed: Session | undefined; cancelledRunning: string[] } | undefined {
   return db.transaction((tx) => {
-    const conversation = getConversation(tx, scope, input.conversationId);
+    const conversation = getConversation(tx, workspaceScope, input.conversationId);
     if (!conversation) return undefined;
-    const open = openSessionOf(tx, scope, conversation.id, conversation.primaryBotId);
+    const open = openSessionOf(tx, workspaceScope, conversation.id, conversation.primaryBotId);
     if (!open) return { closed: undefined, cancelledRunning: [] };
-    return closeSession(tx, scope, open, "reset", input.now);
+    return closeSession(tx, workspaceScope, open, "reset", input.now);
   });
 }
 
 /** Closing the Bot's open Sessions in the same transaction means no Run goes on with the old instructions. */
 export function updateBotSettings(
   db: Db,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   botId: string,
   input: BotPatch & { instructions?: string; now: Date },
 ): ({ bot: Bot; instructionsChanged: boolean } & ClosedSessions) | undefined {
   return db.transaction((tx) => {
     const { instructions, now, ...patch } = input;
-    let bot = getBot(tx, scope, botId);
+    let bot = getBot(tx, workspaceScope, botId);
     if (!bot) return undefined;
-    if (Object.keys(patch).length > 0) bot = updateBot(tx, scope, botId, patch)!;
+    if (Object.keys(patch).length > 0) bot = updateBot(tx, workspaceScope, botId, patch)!;
     const replaced =
-      instructions === undefined ? undefined : replaceBotInstructions(tx, scope, botId, instructions)!;
+      instructions === undefined
+        ? undefined
+        : replaceBotInstructions(tx, workspaceScope, botId, instructions)!;
     if (!replaced?.changed) return { bot, instructionsChanged: false, closed: [], cancelledRunning: [] };
     const open = tx
       .select()
       .from(sessions)
-      .where(and(inWorkspace(sessions, scope), eq(sessions.botId, botId), eq(sessions.status, "open")))
+      .where(
+        and(inWorkspace(sessions, workspaceScope), eq(sessions.botId, botId), eq(sessions.status, "open")),
+      )
       .orderBy(asc(sessions.id))
       .all();
     const result: ClosedSessions = { closed: [], cancelledRunning: [] };
     for (const session of open) {
-      const { closed, cancelledRunning } = closeSession(tx, scope, session, "instructions_changed", now);
+      const { closed, cancelledRunning } = closeSession(
+        tx,
+        workspaceScope,
+        session,
+        "instructions_changed",
+        now,
+      );
       result.closed.push(closed);
       result.cancelledRunning.push(...cancelledRunning);
     }

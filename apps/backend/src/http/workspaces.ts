@@ -29,7 +29,7 @@ export type WorkspaceScopedRequest = {
   req: Request;
   server: Server<undefined>;
   rest: string;
-  scope: WorkspaceScope;
+  workspaceScope: WorkspaceScope;
   /** Resolves the Login and the Workspace again, for a long-lived stream to re-check its access. */
   reauthorize: () => WorkspaceScope | undefined;
   body: () => Promise<unknown>;
@@ -66,10 +66,10 @@ export async function workspaceRoute(
   const id = decode(scoped[1]!);
   const resolve = () =>
     id === undefined ? undefined : resolveWorkspaceScope(ctx.db, id, { kind: "owner", loginId: login.id });
-  const scope = resolve();
-  if (!scope) return apiError("not_found", "no such Workspace");
+  const workspaceScope = resolve();
+  if (!workspaceScope) return apiError("not_found", "no such Workspace");
   const reauthorize = () => (stillLoggedIn() ? resolve() : undefined);
-  return scopedRoute({ req, server, rest: scoped[2] ?? "", scope, reauthorize, body }, ctx);
+  return scopedRoute({ req, server, rest: scoped[2] ?? "", workspaceScope, reauthorize, body }, ctx);
 }
 
 async function scopedRoute(
@@ -77,7 +77,7 @@ async function scopedRoute(
   ctx: RouteContext,
 ): Promise<Response | undefined> {
   if (request.rest === "" && request.req.method === "GET")
-    return json(toWorkspaceItem(request.scope.workspace));
+    return json(toWorkspaceItem(request.workspaceScope.workspace));
   return (
     (await conversationRoute(request, ctx)) ??
     memoryRoute(request, ctx) ??

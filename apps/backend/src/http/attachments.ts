@@ -68,10 +68,10 @@ function encodeFilename(name: string): string {
 /** The CSP `sandbox` directive keeps the document's origin opaque and script-free even outside the momo UI's frame. */
 export function attachmentResponse(
   files: AttachmentFiles,
-  scope: WorkspaceScope,
+  workspaceScope: WorkspaceScope,
   attachment: Attachment,
 ): Response {
-  const bytes = readAttachment(files, scope, attachment);
+  const bytes = readAttachment(files, workspaceScope, attachment);
   if (!bytes) return apiError("not_found", "no such Attachment");
   const type = attachment.contentType.startsWith("text/")
     ? `${attachment.contentType}; charset=utf-8`
