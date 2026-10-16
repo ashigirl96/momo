@@ -11,6 +11,7 @@ import {
 } from "@momo/workspace";
 import { and, asc, eq, gt } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
+import { attachmentsOf, toAttachmentItem, type Attachment } from "./attachments.ts";
 import { messages, runs } from "./schema.ts";
 
 type MessageRow = typeof messages.$inferSelect;
@@ -26,6 +27,7 @@ export type Message = {
   author: MessageAuthor;
   sessionId: string;
   text: string;
+  attachments: Attachment[];
   createdAt: Date;
 };
 
@@ -46,6 +48,7 @@ function toMessage({ message: row, writtenBy, answeredBy }: JoinedRow): Message 
     author,
     sessionId: (writtenBy ?? answeredBy)!.sessionId,
     text: row.text,
+    attachments: [],
     createdAt: row.createdAt,
   };
 }
@@ -78,8 +81,21 @@ function selectMessages(db: Db, tenant: TenantContext) {
     );
 }
 
+function withAttachments(db: Db, tenant: TenantContext, list: Message[]): Message[] {
+  const byMessage = attachmentsOf(
+    db,
+    tenant,
+    list.map((m) => m.id),
+  );
+  return list.map((m) => ({ ...m, attachments: byMessage.get(m.id) ?? [] }));
+}
+
 export function toMessageItem(message: Message): MessageItem {
-  return { ...message, createdAt: message.createdAt.getTime() };
+  return {
+    ...message,
+    attachments: message.attachments.map(toAttachmentItem),
+    createdAt: message.createdAt.getTime(),
+  };
 }
 
 /** Inserts a public message; callers check the Conversation (and the Bot's part in it) first. */
@@ -109,17 +125,19 @@ export function insertMessage(
     author: input.author,
     sessionId: input.sessionId,
     text: row.text,
+    attachments: [],
     createdAt: row.createdAt,
   };
 }
 
 /** All public messages of the Conversation, oldest first, for a Run's input. */
 export function conversationMessages(db: Db, tenant: TenantContext, conversationId: string): Message[] {
-  return selectMessages(db, tenant)
+  const list = selectMessages(db, tenant)
     .where(and(inTenant(messages, tenant), eq(messages.conversationId, conversationId)))
     .orderBy(asc(messages.id))
     .all()
     .map(toMessage);
+  return withAttachments(db, tenant, list);
 }
 
 /** The Conversation's history, oldest first; undefined when the Conversation is not the tenant's. */
@@ -132,7 +150,7 @@ export function listMessages(
   const after = options.cursor === undefined ? undefined : decodeCursor(tenant, LIST, options.cursor);
   if (!getConversation(db, tenant, conversationId)) return undefined;
   const limit = pageLimit(options.limit);
-  const rows = selectMessages(db, tenant)
+  const list = selectMessages(db, tenant)
     .where(
       and(
         inTenant(messages, tenant),
@@ -144,5 +162,6 @@ export function listMessages(
     .limit(limit + 1)
     .all()
     .map(toMessage);
-  return toPage(tenant, LIST, rows, limit);
+  const page = toPage(tenant, LIST, list, limit);
+  return { ...page, items: withAttachments(db, tenant, page.items) };
 }

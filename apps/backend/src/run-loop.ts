@@ -1,4 +1,11 @@
-import { RunnerOutbound, type RunnerInbound, type RunOutcome } from "@momo/contracts";
+import {
+  RunnerOutbound,
+  type MemoryHit,
+  type RunnerInbound,
+  type RunOutcome,
+  type ToolRequest,
+  type ToolResult,
+} from "@momo/contracts";
 import {
   appendRunDelta,
   cancelRun,
@@ -7,16 +14,56 @@ import {
   startNextRun,
   type Run,
 } from "@momo/agent";
+import { searchMemoryItems, writeMemoryItem, type MemoryRow } from "@momo/memory";
 import type { Db } from "@momo/migrator";
 import { resolveTenant, type TenantContext } from "@momo/workspace";
 import type { ConversationHub } from "./conversation-hub.ts";
 import { SessionMailbox, type Runner } from "./mailbox.ts";
 
+type RunningRun = { runId: string; conversationId: string; botId: string };
+
 type SessionSlot = {
   tenant: TenantContext;
   mailbox: SessionMailbox;
-  running?: { runId: string; conversationId: string };
+  running?: RunningRun;
 };
+
+const toHit = (item: MemoryRow): MemoryHit => ({
+  id: item.id,
+  type: item.type,
+  title: item.title,
+  description: item.description,
+  tags: item.tags,
+  ...(item.resource === null ? {} : { resource: item.resource }),
+  body: item.body,
+});
+
+/** Runs a tool for the Run the mailbox is running; its Bot and Workspace come from that Run. */
+function runTool(
+  db: Db,
+  tenant: TenantContext,
+  running: RunningRun,
+  tool: ToolRequest,
+  now: Date,
+): ToolResult {
+  try {
+    if (tool.kind === "memory_write") {
+      const item = writeMemoryItem(db, tenant, { runId: running.runId, item: tool.item, now });
+      return item
+        ? { kind: "memory_written", id: item.id }
+        : { kind: "error", error: "not_in_run", message: "the Run is no longer running" };
+    }
+    if (tool.kind === "memory_search")
+      return {
+        kind: "memory_found",
+        items: searchMemoryItems(db, tenant, running.botId, tool.query).map(toHit),
+      };
+    return { kind: "error", error: "invalid_request", message: "this tool is not available in a Run" };
+  } catch (error) {
+    console.error(`run ${running.runId}: tool ${tool.kind} failed: ${(error as Error).message}`);
+    return { kind: "error", error: "failed", message: "the tool failed" };
+  }
+}
 
 /**
  * Drives Runs between app.db and the runner. app.db is the source of truth for the Run lifecycle;
@@ -53,7 +100,7 @@ export class RunLoop {
     const started = startNextRun(this.#db, slot.tenant, sessionId, this.#now());
     if (!started) return;
     const { run } = started;
-    slot.running = { runId: run.id, conversationId: run.conversationId };
+    slot.running = { runId: run.id, conversationId: run.conversationId, botId: run.botId };
     this.#hub.notify(run.workspaceId, run.conversationId);
     slot.mailbox.postInbound({
       kind: "run_start",
@@ -105,7 +152,16 @@ export class RunLoop {
     if (!parsed.success) return;
     const message = parsed.data;
     const running = slot.running;
-    if (!running || message.runId !== running.runId) return;
+    if (!running || message.runId !== running.runId) {
+      if (message.kind === "tool_request" && message.runId !== undefined)
+        slot.mailbox.postInbound({
+          kind: "tool_result",
+          runId: message.runId,
+          requestId: message.requestId,
+          result: { kind: "error", error: "not_in_run", message: "no such Run is running in this Session" },
+        });
+      return;
+    }
     const now = this.#now();
     if (message.kind === "stream_delta") {
       if (appendRunDelta(this.#db, slot.tenant, running.runId, message.text, now))
@@ -117,7 +173,7 @@ export class RunLoop {
         kind: "tool_result",
         runId: running.runId,
         requestId: message.requestId,
-        result: { kind: "error", error: "invalid_request", message: "this tool is not available in a Run" },
+        result: runTool(this.#db, slot.tenant, running, message.tool, now),
       });
       return;
     }

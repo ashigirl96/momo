@@ -21,6 +21,7 @@ export {
   type Run,
   type StartedRun,
 } from "./runs.ts";
+export { runs } from "./schema.ts";
 export {
   getSession,
   listSessions,
@@ -29,3 +30,11 @@ export {
   updateBotSettings,
   type Session,
 } from "./sessions.ts";
+export {
+  AttachmentFiles,
+  getAttachment,
+  readAttachment,
+  removeWorkspaceAttachments,
+  type Attachment,
+  type AttachmentUpload,
+} from "./attachments.ts";

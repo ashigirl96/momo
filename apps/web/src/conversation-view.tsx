@@ -1,4 +1,5 @@
 import {
+  ATTACHMENTS_PER_MESSAGE_MAX,
   ConversationEvent,
   MESSAGE_TEXT_MAX,
   type BotItem,
@@ -10,6 +11,7 @@ import {
 } from "@momo/contracts";
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "@/api";
+import { AttachmentFrame } from "@/attachment-frame";
 import { BotBubble, ChatFrame, Composer, HumanBubble, useAlive } from "@/chat-parts";
 import {
   applyEvent,
@@ -98,10 +100,13 @@ export function ConversationView(props: {
   const alive = useAlive();
   const name = props.bot?.name ?? "Bot";
 
-  const send = (text: string) => {
+  const send = (text: string, files: File[]) => {
     setSendFailed(false);
-    api
-      .postMessage(props.workspace.id, props.conversation.id, { text })
+    const sending =
+      files.length === 0
+        ? api.postMessage(props.workspace.id, props.conversation.id, { text })
+        : api.postMessageWithFiles(props.workspace.id, props.conversation.id, text, files);
+    sending
       .then((posted) => alive.current && add(posted.message))
       .catch(() => alive.current && setSendFailed(true));
   };
@@ -137,6 +142,7 @@ export function ConversationView(props: {
           placeholder={`${name}にメッセージ`}
           disabled={!state}
           maxLength={MESSAGE_TEXT_MAX}
+          maxFiles={ATTACHMENTS_PER_MESSAGE_MAX}
           onSend={send}
         />
       }
@@ -148,7 +154,14 @@ export function ConversationView(props: {
           const m = item.message;
           return m.author.kind === "owner" ? (
             <HumanBubble key={m.id} testId="owner-message">
-              <MessageText text={m.text} />
+              {m.text && <MessageText text={m.text} />}
+              {m.attachments.map((a) => (
+                <AttachmentFrame
+                  key={a.id}
+                  attachment={a}
+                  src={api.attachmentUrl(props.workspace.id, props.conversation.id, a.id)}
+                />
+              ))}
             </HumanBubble>
           ) : (
             <BotBubble key={m.id} testId="bot-message">

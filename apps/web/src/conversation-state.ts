@@ -53,7 +53,7 @@ export function timeline(state: ConversationState): TimelineItem[] {
   const closed = new Map(state.sessions.filter((s) => s.status === "closed").map((s) => [s.id, s]));
   return state.messages.flatMap((message, i): TimelineItem[] => {
     const item: TimelineItem = { kind: "message", message };
-    const session = closed.get(message.sessionId);
+    const session = message.sessionId === undefined ? undefined : closed.get(message.sessionId);
     const last = state.messages[i + 1]?.sessionId !== message.sessionId;
     return session && last ? [item, { kind: "session_closed", session }] : [item];
   });

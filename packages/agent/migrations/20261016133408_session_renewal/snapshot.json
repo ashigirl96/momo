@@ -1,11 +1,15 @@
 {
   "version": "7",
   "dialect": "sqlite",
-  "id": "fda3c158-f539-4a84-8cbc-9294fa33810f",
+  "id": "0878d8b2-6949-48e5-8cba-4692f469254b",
   "prevIds": [
-    "0467f820-ea8c-4009-968d-c36c5f34bd69"
+    "f0f2b531-de5c-465d-b7f3-20cb6a1a751a"
   ],
   "ddl": [
+    {
+      "name": "attachments",
+      "entityType": "tables"
+    },
     {
       "name": "conversation_events",
       "entityType": "tables"
@@ -21,6 +25,76 @@
     {
       "name": "sessions",
       "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "attachments"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "workspace_id",
+      "entityType": "columns",
+      "table": "attachments"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "message_id",
+      "entityType": "columns",
+      "table": "attachments"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "attachments"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "content_type",
+      "entityType": "columns",
+      "table": "attachments"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "size",
+      "entityType": "columns",
+      "table": "attachments"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "attachments"
     },
     {
       "type": "integer",
@@ -383,6 +457,38 @@
       "onUpdate": "NO ACTION",
       "onDelete": "NO ACTION",
       "nameExplicit": false,
+      "name": "fk_attachments_workspace_id_workspaces_id_fk",
+      "entityType": "fks",
+      "table": "attachments"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "message_id"
+      ],
+      "tableTo": "messages",
+      "columnsTo": [
+        "workspace_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_attachments_workspace_id_message_id_messages_workspace_id_id_fk",
+      "entityType": "fks",
+      "table": "attachments"
+    },
+    {
+      "columns": [
+        "workspace_id"
+      ],
+      "tableTo": "workspaces",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
       "name": "fk_conversation_events_workspace_id_workspaces_id_fk",
       "entityType": "fks",
       "table": "conversation_events"
@@ -581,6 +687,15 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "attachments_pk",
+      "table": "attachments",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "conversation_events_pk",
       "table": "conversation_events",
       "entityType": "pks"
@@ -611,6 +726,28 @@
       "name": "sessions_pk",
       "table": "sessions",
       "entityType": "pks"
+    },
+    {
+      "columns": [
+        {
+          "value": "workspace_id",
+          "isExpression": false
+        },
+        {
+          "value": "message_id",
+          "isExpression": false
+        },
+        {
+          "value": "id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "attachments_message",
+      "entityType": "indexes",
+      "table": "attachments"
     },
     {
       "columns": [
@@ -705,6 +842,16 @@
       "name": "sessions_one_open",
       "entityType": "indexes",
       "table": "sessions"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "attachments_workspace_id_id_unique",
+      "entityType": "uniques",
+      "table": "attachments"
     },
     {
       "columns": [

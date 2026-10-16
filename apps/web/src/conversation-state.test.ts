@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import type { ConversationEvent, MessageItem, SessionItem } from "@momo/contracts";
+import { ConversationEvent, type MessageItem, type SessionItem } from "@momo/contracts";
 import { applyEvent, emptyConversation, timeline, withMessage } from "./conversation-state.ts";
 
 const owner: MessageItem = {
@@ -8,6 +8,7 @@ const owner: MessageItem = {
   author: { kind: "owner" },
   sessionId: "session_1",
   text: "こんにちは",
+  attachments: [],
   createdAt: 1,
 };
 const reply: MessageItem = {
@@ -16,6 +17,7 @@ const reply: MessageItem = {
   author: { kind: "bot", botId: "bot_1", runId: "run_1", cancelled: false },
   sessionId: "session_1",
   text: "**返事**",
+  attachments: [],
   createdAt: 2,
 };
 const afterReset: MessageItem = { ...owner, id: "message_3", sessionId: "session_2", text: "続き" };
@@ -75,6 +77,28 @@ describe("conversation state", () => {
     ]);
 
     expect(state.drafts).toEqual([]);
+  });
+
+  test("a message event logged before Sessions could be renewed still parses and draws no divider", () => {
+    const old = ConversationEvent.parse({
+      kind: "message_created",
+      message: {
+        id: "message_9",
+        conversationId: "conversation_1",
+        author: { kind: "bot", botId: "bot_1", runId: "run_9" },
+        text: "前の返事",
+        createdAt: 1,
+      },
+    });
+    const state = play([old], { ...emptyConversation, sessions: [closed] });
+
+    expect(state.messages[0]?.author).toEqual({
+      kind: "bot",
+      botId: "bot_1",
+      runId: "run_9",
+      cancelled: false,
+    });
+    expect(timeline(state).map((i) => i.kind)).toEqual(["message"]);
   });
 
   test("a closed Session draws a divider after its last message, live and after a reload alike", () => {

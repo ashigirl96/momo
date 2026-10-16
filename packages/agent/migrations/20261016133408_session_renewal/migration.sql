@@ -1,5 +1,6 @@
 ALTER TABLE `sessions` ADD `bot_instructions_version` integer DEFAULT 1 NOT NULL;--> statement-breakpoint
-ALTER TABLE `sessions` ADD `closed_by` text;--> statement-breakpoint
+ALTER TABLE `sessions` ADD `closed_by` text;
+--> statement-breakpoint
 CREATE TRIGGER `sessions_closed_read_only` BEFORE UPDATE ON `sessions`
 WHEN OLD.`status` = 'closed'
 BEGIN SELECT RAISE(ABORT, 'a closed Session is read-only'); END;
