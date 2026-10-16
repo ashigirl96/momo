@@ -23,7 +23,7 @@ _Avoid_: agent, agent group, persona
 _Avoid_: chat, room, group, thread
 
 **主担当 Bot**:
-Conversation に 1 体だけいて、mention の無い人の発言に応える Bot。
+Conversation に 1 体だけいて、mention の無い人の発言に応える Bot。Slack の channel と group DM に結んだ Conversation では、mention と、自分が返信している thread への返信にだけ応える。外部の channel から動かせるのは主担当 Bot だけ。
 _Avoid_: default bot, owner bot
 
 **Session**:
@@ -51,7 +51,7 @@ Conversation の公開の発言に付いたファイル。その Conversation �
 _Avoid_: file, upload
 
 **Channel binding**:
-外部の channel（Slack team と channel の組）を 1 つの Conversation に結びつける設定。外部の channel と Conversation は 1 対 1 で、全 Workspace を通して重ならない。
+外部の channel（Slack team と channel の組）を 1 つの Conversation に結びつける設定。外部の channel と Conversation は 1 対 1 で、全 Workspace を通して重ならない。channel の中の thread も、その channel の Conversation に入る。
 _Avoid_: channel link, subscription
 
 **Memory item**:
