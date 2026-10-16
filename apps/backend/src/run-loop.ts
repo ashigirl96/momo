@@ -6,16 +6,10 @@ import {
   type ToolRequest,
   type ToolResult,
 } from "@momo/contracts";
-import {
-  appendRunDelta,
-  cancelRun,
-  failInterruptedRuns,
-  finishRun,
-  startNextRun,
-  type Run,
-} from "@momo/agent";
+import { appendRunDelta, cancelRun, finishRun, startNextRun, type Run } from "@momo/agent";
 import { searchMemoryItems, writeMemoryItem, type MemoryRow } from "@momo/memory";
 import type { Db } from "@momo/migrator";
+import { failInterruptedRuns } from "@momo/agent/startup";
 import { resolveTenant, type TenantContext } from "@momo/workspace";
 import type { ConversationHub } from "./conversation-hub.ts";
 import { SessionMailbox, type Runner } from "./mailbox.ts";

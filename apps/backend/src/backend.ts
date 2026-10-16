@@ -1,6 +1,7 @@
 import { HOSTNAME, pairingSocketPath, type Pairing, type Warning } from "@momo/contracts";
 import { migrate, openDatabase } from "@momo/migrator";
-import { AttachmentFiles, sweepAttachmentFiles } from "@momo/agent";
+import { AttachmentFiles } from "@momo/agent";
+import { sweepAttachmentFiles } from "@momo/agent/startup";
 import { buildWeb, type WebAsset } from "@momo/web/build";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { join } from "node:path";
