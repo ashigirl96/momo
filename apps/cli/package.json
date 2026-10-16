@@ -1,0 +1,14 @@
+{
+  "name": "@momo/cli",
+  "private": true,
+  "bin": {
+    "momo": "./src/main.ts"
+  },
+  "type": "module",
+  "dependencies": {
+    "@momo/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@momo/backend": "workspace:*"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@momo/backend",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing.ts"
+  },
+  "dependencies": {
+    "@momo/agent": "workspace:*",
+    "@momo/connections": "workspace:*",
+    "@momo/contracts": "workspace:*",
+    "@momo/memory": "workspace:*",
+    "@momo/migrator": "workspace:*",
+    "@momo/web": "workspace:*",
+    "@momo/workspace": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.4"
+  }
+}

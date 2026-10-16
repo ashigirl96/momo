@@ -1,0 +1,29 @@
+{
+  "name": "momo",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "start": "bun apps/backend/src/main.ts",
+    "open": "bun apps/cli/src/main.ts open",
+    "test": "bun test",
+    "lint": "oxlint --deny-warnings",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
+    "typecheck": "tsc --noEmit -p .",
+    "db:generate": "sh scripts/db-generate.sh",
+    "db:check": "sh scripts/db-check.sh"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.3",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "drizzle-kit": "1.0.0-rc.4",
+    "oxfmt": "0.73.0",
+    "oxlint": "1.88.0",
+    "typescript": "7.0.2"
+  }
+}

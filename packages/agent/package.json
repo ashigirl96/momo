@@ -1,0 +1,12 @@
+{
+  "name": "@momo/agent",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@momo/migrator": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.4"
+  }
+}
