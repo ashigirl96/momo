@@ -75,7 +75,7 @@ export function listLogins(db: Db, now: Date): LoginSummary[] {
     .select()
     .from(logins)
     .where(gt(logins.expiresAt, now))
-    .orderBy(desc(logins.createdAt))
+    .orderBy(desc(logins.createdAt), desc(logins.id))
     .all()
     .map(summary);
 }
