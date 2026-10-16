@@ -1,12 +1,14 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["typescript", "unicorn", "oxc", "react", "import"],
+  "jsPlugins": ["./scripts/lint/glossary-plugin.js"],
   "categories": {
     "correctness": "error",
     "suspicious": "warn"
   },
   "rules": {
-    "react/react-in-jsx-scope": "off"
+    "react/react-in-jsx-scope": "off",
+    "glossary/avoided-term": "error"
   },
   "env": {
     "builtin": true,

@@ -1,7 +1,7 @@
 import {
   BOT_PURPOSE_MAX,
-  DEFAULT_BOT_MODEL,
-  DEFAULT_BOT_TOOLS,
+  NEW_BOT_MODEL,
+  NEW_BOT_TOOLS,
   type BotItem,
   type BotSettingsProposal,
   type ConversationItem,
@@ -198,7 +198,7 @@ function CreateBot({ workspace, onSaved }: { workspace: WorkspaceItem; onSaved: 
           setProposal({
             ...p,
             status: "pending",
-            settings: { model: DEFAULT_BOT_MODEL, tools: DEFAULT_BOT_TOOLS },
+            settings: { model: NEW_BOT_MODEL, tools: NEW_BOT_TOOLS },
           });
       })
       .catch(() => alive.current && setFailed(true))

@@ -14,8 +14,8 @@ export type BotModel = z.infer<typeof BotModel>;
 export const BotTool = z.enum(["memory"]);
 export type BotTool = z.infer<typeof BotTool>;
 
-export const DEFAULT_BOT_MODEL: BotModel = "sonnet";
-export const DEFAULT_BOT_TOOLS: BotTool[] = ["memory"];
+export const NEW_BOT_MODEL: BotModel = "sonnet";
+export const NEW_BOT_TOOLS: BotTool[] = ["memory"];
 
 const BotName = z.string().trim().min(1).max(BOT_NAME_MAX);
 const BotInstructions = z.string().trim().min(1).max(BOT_INSTRUCTIONS_MAX);
