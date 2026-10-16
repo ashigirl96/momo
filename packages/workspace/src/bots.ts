@@ -1,6 +1,6 @@
 import type { BotModel, BotTool } from "@momo/contracts";
 import type { Db } from "@momo/migrator";
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq, lt, sql } from "drizzle-orm";
 import { decodeCursor, pageLimit, toPage, type Page } from "./paging.ts";
 import { inTenant } from "./scoped.ts";
 import { bots } from "./schema.ts";
@@ -55,6 +55,27 @@ export function listBots(
     .limit(limit + 1)
     .all();
   return toPage(tenant, LIST, rows, limit);
+}
+
+/**
+ * Sets the instructions and bumps their version when the text differs. Changing them must close
+ * the Bot's open Sessions in the same transaction, so callers go through agent's `updateBotSettings`.
+ */
+export function replaceBotInstructions(
+  db: Db,
+  tenant: TenantContext,
+  id: string,
+  instructions: string,
+): { bot: Bot; changed: boolean } | undefined {
+  const bot = getBot(db, tenant, id);
+  if (!bot || bot.instructions === instructions) return bot && { bot, changed: false };
+  const updated = db
+    .update(bots)
+    .set({ instructions, instructionsVersion: sql`${bots.instructionsVersion} + 1` })
+    .where(and(inTenant(bots, tenant), eq(bots.id, id)))
+    .returning()
+    .get();
+  return { bot: updated, changed: true };
 }
 
 export function updateBot(db: Db, tenant: TenantContext, id: string, patch: BotPatch): Bot | undefined {

@@ -11,6 +11,7 @@ export { listMessages, toMessageItem, type Message, type MessageAuthor } from ".
 export { postOwnerMessage } from "./post-message.ts";
 export {
   appendRunDelta,
+  cancelRun,
   failInterruptedRuns,
   finishRun,
   getRun,
@@ -20,4 +21,11 @@ export {
   type Run,
   type StartedRun,
 } from "./runs.ts";
-export { getSession, type Session } from "./sessions.ts";
+export {
+  getSession,
+  listSessions,
+  resetSession,
+  toSessionItem,
+  updateBotSettings,
+  type Session,
+} from "./sessions.ts";

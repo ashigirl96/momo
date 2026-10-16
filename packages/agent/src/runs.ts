@@ -1,7 +1,7 @@
 import type { RunInputMessage, RunItem, RunOutcome } from "@momo/contracts";
 import type { Db } from "@momo/migrator";
 import { inTenant, type Actor, type TenantContext } from "@momo/workspace";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { appendEvent } from "./events.ts";
 import { conversationMessages, insertMessage, toMessageItem } from "./messages.ts";
 import { conversationEvents, runs } from "./schema.ts";
@@ -99,12 +99,14 @@ export function startNextRun(
       event: { kind: "run_started", runId: run.id },
       now,
     });
-    const all = conversationMessages(tx, tenant, run.conversationId);
-    const inputAt = all.findIndex((m) => m.id === run.inputMessageId);
-    const history = all
+    const inSessionMessages = conversationMessages(tx, tenant, run.conversationId).filter(
+      (m) => m.sessionId === run.sessionId,
+    );
+    const inputAt = inSessionMessages.findIndex((m) => m.id === run.inputMessageId);
+    const history = inSessionMessages
       .slice(0, inputAt)
       .map((m): RunInputMessage => ({ author: m.author.kind, text: m.text }));
-    return { run, input: all[inputAt]!.text, history };
+    return { run, input: inSessionMessages[inputAt]!.text, history };
   });
 }
 
@@ -149,9 +151,47 @@ function streamedText(db: Db, tenant: TenantContext, runId: string): string {
 }
 
 /**
- * Finishes a running Run. A completed Run's streamed text becomes the Bot's public message in the
- * same transaction, so the history never shows a finished Run without its message.
+ * Ends an unfinished Run of the tenant. The text a completed or cancelled Run streamed becomes the
+ * Bot's public message in the same transaction, so the history never shows the Run without it.
  */
+function endRun(db: Db, tenant: TenantContext, unfinished: Run, outcome: RunOutcome, now: Date): Run {
+  const text = streamedText(db, tenant, unfinished.id);
+  if (outcome !== "failed" && text !== "") {
+    const message = insertMessage(db, tenant, {
+      conversationId: unfinished.conversationId,
+      author: {
+        kind: "bot",
+        botId: unfinished.botId,
+        runId: unfinished.id,
+        cancelled: outcome === "cancelled",
+      },
+      sessionId: unfinished.sessionId,
+      text,
+      now,
+    });
+    appendEvent(db, tenant, {
+      conversationId: unfinished.conversationId,
+      runId: unfinished.id,
+      event: { kind: "message_created", message: toMessageItem(message) },
+      now,
+    });
+  }
+  const run = db
+    .update(runs)
+    .set({ status: outcome, finishedAt: now })
+    .where(and(inTenant(runs, tenant), eq(runs.id, unfinished.id)))
+    .returning()
+    .get();
+  appendEvent(db, tenant, {
+    conversationId: run.conversationId,
+    runId: run.id,
+    event: { kind: "run_finished", runId: run.id, status: run.status },
+    now,
+  });
+  return run;
+}
+
+/** Finishes a running Run as the runner reports it; undefined when it is not running in the tenant. */
 export function finishRun(
   db: Db,
   tenant: TenantContext,
@@ -160,36 +200,34 @@ export function finishRun(
 ): Run | undefined {
   return db.transaction((tx) => {
     const running = runningRun(tx, tenant, runId);
-    if (!running) return undefined;
-    const text = streamedText(tx, tenant, runId);
-    if (input.outcome === "completed" && text !== "") {
-      const message = insertMessage(tx, tenant, {
-        conversationId: running.conversationId,
-        author: { kind: "bot", botId: running.botId, runId: running.id },
-        text,
-        now: input.now,
-      });
-      appendEvent(tx, tenant, {
-        conversationId: running.conversationId,
-        runId: running.id,
-        event: { kind: "message_created", message: toMessageItem(message) },
-        now: input.now,
-      });
-    }
-    const run = tx
-      .update(runs)
-      .set({ status: input.outcome, finishedAt: input.now })
-      .where(and(inTenant(runs, tenant), eq(runs.id, runId)))
-      .returning()
-      .get();
-    appendEvent(tx, tenant, {
-      conversationId: run.conversationId,
-      runId: run.id,
-      event: { kind: "run_finished", runId: run.id, status: run.status },
-      now: input.now,
-    });
-    return run;
+    return running && endRun(tx, tenant, running, input.outcome, input.now);
   });
+}
+
+/**
+ * The owner stops a queued or running Run. app.db records the stop at once, so the history and a
+ * reload show it whether or not the runner answers the cancel. A finished Run is returned as it is.
+ */
+export function cancelRun(db: Db, tenant: TenantContext, runId: string, now: Date): Run | undefined {
+  return db.transaction((tx) => {
+    const run = getRun(tx, tenant, runId);
+    if (!run || (run.status !== "queued" && run.status !== "running")) return run;
+    return endRun(tx, tenant, run, "cancelled", now);
+  });
+}
+
+/** Cancels every unfinished Run of a Session; returns the ids of those that were running. */
+export function cancelSessionRuns(db: Db, tenant: TenantContext, sessionId: string, now: Date): string[] {
+  const unfinished = db
+    .select()
+    .from(runs)
+    .where(
+      and(inTenant(runs, tenant), eq(runs.sessionId, sessionId), inArray(runs.status, ["queued", "running"])),
+    )
+    .orderBy(asc(runs.id))
+    .all();
+  for (const run of unfinished) endRun(db, tenant, run, "cancelled", now);
+  return unfinished.filter((run) => run.status === "running").map((run) => run.id);
 }
 
 export type QueuedSession = { workspaceId: string; sessionId: string; actor: Actor };

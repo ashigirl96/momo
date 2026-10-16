@@ -1,4 +1,4 @@
-import type { MessageItem } from "@momo/contracts";
+import type { MessageItem, RunStatus } from "@momo/contracts";
 import type { Db } from "@momo/migrator";
 import {
   decodeCursor,
@@ -10,26 +10,72 @@ import {
   type TenantContext,
 } from "@momo/workspace";
 import { and, asc, eq, gt } from "drizzle-orm";
-import { messages } from "./schema.ts";
+import { alias } from "drizzle-orm/sqlite-core";
+import { messages, runs } from "./schema.ts";
 
 type MessageRow = typeof messages.$inferSelect;
 
-export type MessageAuthor = { kind: "owner" } | { kind: "bot"; botId: string; runId: string };
+/** A Bot's message is `cancelled` when the owner stopped its Run part way through. */
+export type MessageAuthor =
+  | { kind: "owner" }
+  | { kind: "bot"; botId: string; runId: string; cancelled: boolean };
 
 export type Message = {
   id: string;
   conversationId: string;
   author: MessageAuthor;
+  sessionId: string;
   text: string;
   createdAt: Date;
 };
 
 const LIST = "messages";
 
-function toMessage(row: MessageRow): Message {
+type RunRef = { status: RunStatus; sessionId: string } | null;
+
+type JoinedRow = { message: MessageRow; writtenBy: RunRef; answeredBy: RunRef };
+
+function toMessage({ message: row, writtenBy, answeredBy }: JoinedRow): Message {
   const author: MessageAuthor =
-    row.authorKind === "bot" ? { kind: "bot", botId: row.botId!, runId: row.runId! } : { kind: "owner" };
-  return { id: row.id, conversationId: row.conversationId, author, text: row.text, createdAt: row.createdAt };
+    row.authorKind === "bot"
+      ? { kind: "bot", botId: row.botId!, runId: row.runId!, cancelled: writtenBy?.status === "cancelled" }
+      : { kind: "owner" };
+  return {
+    id: row.id,
+    conversationId: row.conversationId,
+    author,
+    sessionId: (writtenBy ?? answeredBy)!.sessionId,
+    text: row.text,
+    createdAt: row.createdAt,
+  };
+}
+
+const answering = alias(runs, "answering");
+
+/**
+ * The tenant's messages with the Run that wrote a Bot's message, or the Run that answers an owner's
+ * message; that Run names the Session. Both joins are scoped like the messages.
+ */
+function selectMessages(db: Db, tenant: TenantContext) {
+  return db
+    .select({
+      message: messages,
+      writtenBy: { status: runs.status, sessionId: runs.sessionId },
+      answeredBy: { status: answering.status, sessionId: answering.sessionId },
+    })
+    .from(messages)
+    .leftJoin(
+      runs,
+      and(inTenant(runs, tenant), eq(runs.workspaceId, messages.workspaceId), eq(runs.id, messages.runId)),
+    )
+    .leftJoin(
+      answering,
+      and(
+        inTenant(answering, tenant),
+        eq(answering.workspaceId, messages.workspaceId),
+        eq(answering.inputMessageId, messages.id),
+      ),
+    );
 }
 
 export function toMessageItem(message: Message): MessageItem {
@@ -40,7 +86,7 @@ export function toMessageItem(message: Message): MessageItem {
 export function insertMessage(
   db: Db,
   tenant: TenantContext,
-  input: { conversationId: string; author: MessageAuthor; text: string; now: Date },
+  input: { conversationId: string; author: MessageAuthor; sessionId: string; text: string; now: Date },
 ): Message {
   const bot = input.author.kind === "bot" ? input.author : undefined;
   const row = db
@@ -57,14 +103,19 @@ export function insertMessage(
     })
     .returning()
     .get();
-  return toMessage(row);
+  return {
+    id: row.id,
+    conversationId: row.conversationId,
+    author: input.author,
+    sessionId: input.sessionId,
+    text: row.text,
+    createdAt: row.createdAt,
+  };
 }
 
 /** All public messages of the Conversation, oldest first, for a Run's input. */
 export function conversationMessages(db: Db, tenant: TenantContext, conversationId: string): Message[] {
-  return db
-    .select()
-    .from(messages)
+  return selectMessages(db, tenant)
     .where(and(inTenant(messages, tenant), eq(messages.conversationId, conversationId)))
     .orderBy(asc(messages.id))
     .all()
@@ -81,9 +132,7 @@ export function listMessages(
   const after = options.cursor === undefined ? undefined : decodeCursor(tenant, LIST, options.cursor);
   if (!getConversation(db, tenant, conversationId)) return undefined;
   const limit = pageLimit(options.limit);
-  const rows = db
-    .select()
-    .from(messages)
+  const rows = selectMessages(db, tenant)
     .where(
       and(
         inTenant(messages, tenant),

@@ -17,20 +17,21 @@ export function postOwnerMessage(
   return db.transaction((tx) => {
     const conversation = getConversation(tx, tenant, input.conversationId);
     if (!conversation) return undefined;
+    const session = openSession(tx, tenant, {
+      conversationId: conversation.id,
+      botId: conversation.primaryBotId,
+      now: input.now,
+    });
     const message = insertMessage(tx, tenant, {
       conversationId: conversation.id,
       author: { kind: "owner" },
+      sessionId: session.id,
       text: input.text,
       now: input.now,
     });
     appendEvent(tx, tenant, {
       conversationId: conversation.id,
       event: { kind: "message_created", message: toMessageItem(message) },
-      now: input.now,
-    });
-    const session = openSession(tx, tenant, {
-      conversationId: conversation.id,
-      botId: conversation.primaryBotId,
       now: input.now,
     });
     const run = queueRun(tx, tenant, {

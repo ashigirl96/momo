@@ -7,6 +7,7 @@ export * from "./local.ts";
 export * from "./mailbox.ts";
 export * from "./messages.ts";
 export * from "./runs.ts";
+export * from "./sessions.ts";
 
 const epochMs = z.int().nonnegative();
 

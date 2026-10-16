@@ -25,6 +25,8 @@ export const BotItem = z.strictObject({
   id: z.string(),
   name: z.string(),
   instructions: z.string(),
+  /** Grows by one each time the instructions change. */
+  instructionsVersion: z.int().positive(),
   model: BotModel,
   tools: z.array(BotTool),
   createdAt: epochMs,
@@ -46,11 +48,25 @@ export const CreateBotRequest = z.strictObject({
 });
 export type CreateBotRequest = z.input<typeof CreateBotRequest>;
 
-/** Changing the instructions renews the Session, so it is not part of this request. */
+/** New instructions close the Bot's open Sessions; its Conversations go on in new ones. */
 export const UpdateBotRequest = z
-  .strictObject({ name: BotName.optional(), model: BotModel.optional(), tools: BotTools.optional() })
+  .strictObject({
+    name: BotName.optional(),
+    instructions: BotInstructions.optional(),
+    model: BotModel.optional(),
+    tools: BotTools.optional(),
+  })
   .refine((patch) => Object.keys(patch).length > 0, "nothing to update");
 export type UpdateBotRequest = z.input<typeof UpdateBotRequest>;
+
+export const UpdateBotResponse = z.strictObject({
+  bot: BotItem,
+  /** The instructions changed, so the Bot's Conversations go on in new Sessions. */
+  sessionsRenewed: z.boolean(),
+  /** How many open Sessions closed because of it. */
+  closedSessions: z.int().nonnegative(),
+});
+export type UpdateBotResponse = z.infer<typeof UpdateBotResponse>;
 
 /** What the owner tells a new Bot it is for. */
 export const ProposeBotRequest = z.strictObject({
