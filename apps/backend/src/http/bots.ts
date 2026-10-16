@@ -6,14 +6,18 @@ import {
   type BotItem,
   type BotList,
   type BotSettingsProposal,
+  type UpdateBotResponse,
 } from "@momo/contracts";
+import { updateBotSettings } from "@momo/agent";
 import type { Db } from "@momo/migrator";
-import { createBot, getBot, InvalidCursor, listBots, updateBot, type Bot } from "@momo/workspace";
+import { createBot, getBot, InvalidCursor, listBots, type Bot } from "@momo/workspace";
+import type { ConversationHub } from "../conversation-hub.ts";
 import { proposeBotSettings } from "../fake-runner.ts";
+import type { RunLoop } from "../run-loop.ts";
 import { apiError, json } from "./respond.ts";
 import type { TenantRequest } from "./workspaces.ts";
 
-type BotApiContext = { db: Db; now: () => Date };
+type BotApiContext = { db: Db; now: () => Date; runs: RunLoop; hub: ConversationHub };
 
 const BOT = /^\/bots\/([^/]+)$/;
 
@@ -22,6 +26,7 @@ function toItem(bot: Bot): BotItem {
     id: bot.id,
     name: bot.name,
     instructions: bot.instructions,
+    instructionsVersion: bot.instructionsVersion,
     model: bot.model,
     tools: bot.tools,
     createdAt: bot.createdAt.getTime(),
@@ -94,9 +99,17 @@ export async function botRoute(
   }
   if (req.method === "PATCH") {
     const input = UpdateBotRequest.safeParse(await body());
-    if (!input.success) return apiError("bad_request", "expected some of { name, model, tools }");
-    const bot = updateBot(ctx.db, tenant, id, input.data);
-    return bot ? json(toItem(bot)) : apiError("not_found", "no such Bot");
+    if (!input.success)
+      return apiError("bad_request", "expected some of { name, instructions, model, tools }");
+    const updated = updateBotSettings(ctx.db, tenant, id, { ...input.data, now: ctx.now() });
+    if (!updated) return apiError("not_found", "no such Bot");
+    ctx.runs.stopCancelled(updated.cancelledRunning);
+    for (const session of updated.closed) ctx.hub.notify(tenant.workspaceId, session.conversationId);
+    return json({
+      bot: toItem(updated.bot),
+      sessionsRenewed: updated.instructionsChanged,
+      closedSessions: updated.closed.length,
+    } satisfies UpdateBotResponse);
   }
   return undefined;
 }

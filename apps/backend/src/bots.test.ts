@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
   ApiError,
   BotItem,
+  UpdateBotResponse,
   BotList,
   BotSettingsProposal,
   WorkspaceItem,
@@ -133,7 +134,11 @@ describe("Bot API", () => {
       body: { model: "haiku", tools: [] },
     });
     expect(res.status).toBe(200);
-    expect(BotItem.parse(await res.json())).toEqual({ ...bot, model: "haiku", tools: [] });
+    expect(UpdateBotResponse.parse(await res.json())).toEqual({
+      bot: { ...bot, model: "haiku", tools: [] },
+      sessionsRenewed: false,
+      closedSessions: 0,
+    });
   });
 
   test("a create request naming an id or Workspace, or unknown settings, is refused and creates nothing", async () => {
@@ -158,14 +163,20 @@ describe("Bot API", () => {
     expect(await botNames(cookie, other.id)).toEqual([]);
   });
 
-  test("an update cannot move a Bot to another Workspace or change its instructions", async () => {
+  test("an update cannot move a Bot to another Workspace, change its id or empty its instructions", async () => {
     b = await startTestBackend();
     const cookie = await b.login();
     const w = await workspace(cookie, "個人");
     const other = await workspace(cookie, "会社 A");
     const bot = await createBot(cookie, w.id);
 
-    for (const body of [{ workspaceId: other.id }, { id: "bot_x" }, { instructions: "別の指示" }, {}]) {
+    for (const body of [
+      { workspaceId: other.id },
+      { id: "bot_x" },
+      { instructionsVersion: 9 },
+      { instructions: " " },
+      {},
+    ]) {
       const res = await b.call(`/api/workspaces/${w.id}/bots/${bot.id}`, { method: "PATCH", cookie, body });
       expect(res.status).toBe(400);
     }

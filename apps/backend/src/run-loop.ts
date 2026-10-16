@@ -1,5 +1,12 @@
 import { RunnerOutbound, type RunnerInbound, type RunOutcome } from "@momo/contracts";
-import { appendRunDelta, failInterruptedRuns, finishRun, startNextRun } from "@momo/agent";
+import {
+  appendRunDelta,
+  cancelRun,
+  failInterruptedRuns,
+  finishRun,
+  startNextRun,
+  type Run,
+} from "@momo/agent";
 import type { Db } from "@momo/migrator";
 import { resolveTenant, type TenantContext } from "@momo/workspace";
 import type { ConversationHub } from "./conversation-hub.ts";
@@ -54,6 +61,26 @@ export class RunLoop {
       input: started.input,
       history: started.history,
     } satisfies RunnerInbound);
+  }
+
+  /** The owner stops a queued or running Run; undefined when it is not the tenant's. */
+  cancel(tenant: TenantContext, runId: string): Run | undefined {
+    const run = cancelRun(this.#db, tenant, runId, this.#now());
+    if (!run) return undefined;
+    this.stopCancelled([run.id]);
+    this.#hub.notify(run.workspaceId, run.conversationId);
+    return run;
+  }
+
+  /**
+   * Tells the runner to stop Runs app.db already records as cancelled. Their Session keeps its slot
+   * until the runner confirms with run_finished, so the next Run never overlaps the stopping one.
+   */
+  stopCancelled(runIds: readonly string[]): void {
+    for (const slot of this.#sessions.values()) {
+      const runId = slot.running?.runId;
+      if (runId && runIds.includes(runId)) slot.mailbox.postInbound({ kind: "cancel", runId });
+    }
   }
 
   stop(): void {

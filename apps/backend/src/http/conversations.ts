@@ -6,8 +6,19 @@ import {
   type ConversationList,
   type MessagePage,
   type PostMessageResponse,
+  type ResetSessionResponse,
 } from "@momo/contracts";
-import { getRun, listMessages, postOwnerMessage, streamAfter, toMessageItem, toRunItem } from "@momo/agent";
+import {
+  getRun,
+  listMessages,
+  listSessions,
+  postOwnerMessage,
+  resetSession,
+  streamAfter,
+  toMessageItem,
+  toRunItem,
+  toSessionItem,
+} from "@momo/agent";
 import type { Db } from "@momo/migrator";
 import {
   createConversation,
@@ -31,8 +42,8 @@ export type ConversationApiContext = {
   streamCheckMs: number;
 };
 
-const CONVERSATION = /^\/conversations\/([^/]+)(\/messages|\/events)?$/;
-const RUN = /^\/runs\/([^/]+)$/;
+const CONVERSATION = /^\/conversations\/([^/]+)(\/messages|\/events|\/reset)?$/;
+const RUN = /^\/runs\/([^/]+)(\/cancel)?$/;
 
 function toItem(c: ConversationSummary): ConversationItem {
   return { id: c.id, primaryBotId: c.primaryBotId, createdAt: c.createdAt.getTime() };
@@ -89,10 +100,17 @@ export async function conversationRoute(
   }
 
   const run = RUN.exec(rest);
-  if (run && req.method === "GET") {
+  if (run) {
     const id = decode(run[1]!);
-    const found = id === undefined ? undefined : getRun(ctx.db, tenant, id);
-    return found ? json(toRunItem(found)) : apiError("not_found", "no such Run");
+    if (run[2] === undefined && req.method === "GET") {
+      const found = id === undefined ? undefined : getRun(ctx.db, tenant, id);
+      return found ? json(toRunItem(found)) : apiError("not_found", "no such Run");
+    }
+    if (run[2] === "/cancel" && req.method === "POST") {
+      const cancelled = id === undefined ? undefined : ctx.runs.cancel(tenant, id);
+      return cancelled ? json(toRunItem(cancelled)) : apiError("not_found", "no such Run");
+    }
+    return undefined;
   }
 
   const match = CONVERSATION.exec(rest);
@@ -112,14 +130,26 @@ export async function conversationRoute(
     return paged(() => {
       const page = ctx.db.transaction((tx) => {
         const after = streamAfter(tx, tenant, conversation.id);
-        return { after, page: listMessages(tx, tenant, conversation.id, listQuery(req))! };
+        const sessions = listSessions(tx, tenant, conversation.id);
+        return { after, sessions, page: listMessages(tx, tenant, conversation.id, listQuery(req))! };
       });
       return json({
         messages: page.page.items.map(toMessageItem),
         nextCursor: page.page.nextCursor,
+        sessions: page.sessions.map(toSessionItem),
         streamAfter: page.after,
       } satisfies MessagePage);
     });
+
+  if (sub === "/reset" && req.method === "POST") {
+    const reset = resetSession(ctx.db, tenant, { conversationId: conversation.id, now: ctx.now() });
+    if (!reset) return apiError("not_found", "no such Conversation");
+    ctx.runs.stopCancelled(reset.cancelledRunning);
+    ctx.hub.notify(tenant.workspaceId, conversation.id);
+    return json({
+      closed: reset.closed && toSessionItem(reset.closed),
+    } satisfies ResetSessionResponse);
+  }
 
   if (sub === "/messages" && req.method === "POST") {
     const input = PostMessageRequest.safeParse(await body());

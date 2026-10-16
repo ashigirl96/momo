@@ -7,7 +7,9 @@ import {
   ConversationList,
   MessagePage,
   PostMessageResponse,
+  ResetSessionResponse,
   RunItem,
+  UpdateBotResponse,
   WorkspaceItem,
   type ConversationEvent,
 } from "@momo/contracts";
@@ -362,5 +364,177 @@ describe("ids of another Workspace", () => {
 
     const res = await b.call(`${other.base}/messages?cursor=${page.nextCursor}`, { cookie });
     expect(res.status).toBe(400);
+  });
+});
+
+async function cancel(cookie: string, w: { id: string }, runId: string) {
+  return b.call(`/api/workspaces/${w.id}/runs/${runId}/cancel`, { method: "POST", cookie });
+}
+
+async function reset(cookie: string, base: string) {
+  return b.call(`${base}/reset`, { method: "POST", cookie });
+}
+
+const LONG = "とても長い返事をください。".repeat(5);
+
+/** The Conversation's events from the start until `until` matches, on a fresh stream. */
+async function eventsUntil(cookie: string, base: string, until: (frame: Frame) => boolean) {
+  const stream = await b.call(`${base}/events?after=0`, { cookie });
+  return (await frames(stream, until)).frames.map((f) => f.event);
+}
+
+describe("cancelling a Run", () => {
+  test("a Run cancelled mid-reply stops, keeps what it wrote marked cancelled, and shows the same after a reload and a restart", async () => {
+    b = await startTestBackend({ fakeRunnerDelayMs: 30 });
+    const cookie = await b.login();
+    const { base, w } = await setup(cookie, "個人");
+    const stream = await b.call(`${base}/events?after=0`, { cookie });
+    const { run } = await say(cookie, base, LONG);
+    await frames(stream, (f) => f.event.kind === "run_delta");
+
+    const res = await cancel(cookie, w, run.id);
+    expect(res.status).toBe(200);
+    expect(RunItem.parse(await res.json()).status).toBe("cancelled");
+    await Bun.sleep(150);
+
+    const page = await history(cookie, base);
+    const reply = page.messages[1]!;
+    expect(reply.author).toMatchObject({ kind: "bot", runId: run.id, cancelled: true });
+    expect(reply.text.length).toBeGreaterThan(0);
+    expect(reply.text.length).toBeLessThan(`**1 件目**の発言を受け取りました: ${LONG}`.length);
+    const replay = await b.call(`${base}/events?after=0`, { cookie });
+    const events = (await frames(replay, finished(run.id))).frames.map((f) => f.event);
+    expect(events.at(-1)).toEqual({ kind: "run_finished", runId: run.id, status: "cancelled" });
+
+    b = await b.restart();
+    expect((await history(cookie, base)).messages).toEqual(page.messages);
+    const after = await b.call(`/api/workspaces/${w.id}/runs/${run.id}`, { cookie });
+    expect(RunItem.parse(await after.json()).status).toBe("cancelled");
+  });
+
+  test("after a cancel the Session takes the next message, and a queued Run can be cancelled before it starts", async () => {
+    b = await startTestBackend({ fakeRunnerDelayMs: 20 });
+    const cookie = await b.login();
+    const { base, w } = await setup(cookie, "個人");
+    const stream = await b.call(`${base}/events?after=0`, { cookie });
+    const first = (await say(cookie, base, LONG)).run;
+    const second = (await say(cookie, base, "2")).run;
+    expect(RunItem.parse(await (await cancel(cookie, w, second.id)).json()).status).toBe("cancelled");
+    await cancel(cookie, w, first.id);
+    const third = (await say(cookie, base, "3")).run;
+
+    const got = (await frames(stream, finished(third.id))).frames.map((f) => f.event);
+    expect(got).not.toContainEqual({ kind: "run_started", runId: second.id });
+    expect(got.at(-1)).toEqual({ kind: "run_finished", runId: third.id, status: "completed" });
+    const done = await cancel(cookie, w, third.id);
+    expect(RunItem.parse(await done.json()).status).toBe("completed");
+  });
+});
+
+describe("renewing a Session", () => {
+  test("a reset closes the Session and the Conversation goes on in a new one; the closed Session's messages stay", async () => {
+    b = await startTestBackend({ fakeRunnerDelayMs: 1 });
+    const cookie = await b.login();
+    const { base } = await setup(cookie, "個人");
+    const stream = await b.call(`${base}/events?after=0`, { cookie });
+    const first = (await say(cookie, base, "1")).run;
+    await frames(stream, finished(first.id));
+
+    const res = await reset(cookie, base);
+    expect(res.status).toBe(200);
+    expect(ResetSessionResponse.parse(await res.json()).closed).toMatchObject({
+      id: first.sessionId,
+      status: "closed",
+      closedBy: "reset",
+    });
+    const next = (await say(cookie, base, "2")).run;
+    expect(next.sessionId).not.toBe(first.sessionId);
+    await eventsUntil(cookie, base, finished(next.id));
+
+    const page = await history(cookie, base);
+    expect(page.messages.map((m) => [m.sessionId, m.text])).toEqual([
+      [first.sessionId, "1"],
+      [first.sessionId, "**1 件目**の発言を受け取りました: 1"],
+      [next.sessionId, "2"],
+      [next.sessionId, "**1 件目**の発言を受け取りました: 2"],
+    ]);
+    expect(page.sessions.map((s) => [s.id, s.status, s.closedBy])).toEqual([
+      [first.sessionId, "closed", "reset"],
+      [next.sessionId, "open", undefined],
+    ]);
+  });
+
+  test("a reset during a reply cancels the running Run", async () => {
+    b = await startTestBackend({ fakeRunnerDelayMs: 30 });
+    const cookie = await b.login();
+    const { base, w } = await setup(cookie, "個人");
+    const stream = await b.call(`${base}/events?after=0`, { cookie });
+    const { run } = await say(cookie, base, LONG);
+    await frames(stream, (f) => f.event.kind === "run_delta");
+
+    await reset(cookie, base);
+    const got = await eventsUntil(cookie, base, (f) => f.event.kind === "session_closed");
+    expect(got).toContainEqual({ kind: "run_finished", runId: run.id, status: "cancelled" });
+    const res = await b.call(`/api/workspaces/${w.id}/runs/${run.id}`, { cookie });
+    expect(RunItem.parse(await res.json()).status).toBe("cancelled");
+  });
+
+  test("saving new instructions renews the Bot's Session and says so", async () => {
+    b = await startTestBackend({ fakeRunnerDelayMs: 1 });
+    const cookie = await b.login();
+    const { base, w, bot } = await setup(cookie, "個人");
+    const stream = await b.call(`${base}/events?after=0`, { cookie });
+    const first = (await say(cookie, base, "1")).run;
+    await frames(stream, finished(first.id));
+
+    const res = await b.call(`/api/workspaces/${w.id}/bots/${bot.id}`, {
+      method: "PATCH",
+      cookie,
+      body: { instructions: "丁寧に手伝う" },
+    });
+    expect(res.status).toBe(200);
+    expect(UpdateBotResponse.parse(await res.json())).toEqual({
+      bot: { ...bot, instructions: "丁寧に手伝う", instructionsVersion: 2 },
+      sessionsRenewed: true,
+      closedSessions: 1,
+    });
+    const next = (await say(cookie, base, "2")).run;
+    await eventsUntil(cookie, base, finished(next.id));
+
+    const page = await history(cookie, base);
+    expect(page.messages.at(-1)?.text).toBe("**1 件目**の発言を受け取りました: 2");
+    expect(page.sessions.map((s) => [s.closedBy, s.botInstructionsVersion])).toEqual([
+      ["instructions_changed", 1],
+      [undefined, 2],
+    ]);
+  });
+
+  test("Run, Conversation and Bot ids of another Workspace cannot cancel, reset or renew anything", async () => {
+    b = await startTestBackend({ fakeRunnerDelayMs: 30 });
+    const cookie = await b.login();
+    const a = await setup(cookie, "A");
+    const other = await setup(cookie, "B");
+    const stream = await b.call(`${a.base}/events?after=0`, { cookie });
+    const { run } = await say(cookie, a.base, "A の発言");
+    const crossed = `/api/workspaces/${other.w.id}/conversations/${a.conversation.id}`;
+
+    for (const res of [
+      await cancel(cookie, other.w, run.id),
+      await reset(cookie, crossed),
+      await b.call(`/api/workspaces/${other.w.id}/bots/${a.bot.id}`, {
+        method: "PATCH",
+        cookie,
+        body: { instructions: "乗っ取り" },
+      }),
+    ]) {
+      expect(res.status).toBe(404);
+      expect(await errorKind(res)).toBe("not_found");
+    }
+
+    const got = (await frames(stream, finished(run.id))).frames.map((f) => f.event);
+    expect(got.at(-1)).toEqual({ kind: "run_finished", runId: run.id, status: "completed" });
+    expect((await history(cookie, a.base)).sessions.map((s) => s.status)).toEqual(["open"]);
+    const bot = await b.call(`/api/workspaces/${a.w.id}/bots/${a.bot.id}`, { cookie });
+    expect(BotItem.parse(await bot.json())).toEqual(a.bot);
   });
 });
