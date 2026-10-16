@@ -37,6 +37,7 @@ export {
   readAttachment,
   removeAttachmentFiles,
   removeWorkspaceAttachments,
+  sweepAttachmentFiles,
   type Attachment,
   type AttachmentUpload,
 } from "./attachments.ts";

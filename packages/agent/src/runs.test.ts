@@ -279,7 +279,7 @@ describe("the event log and history", () => {
     expect(streamAfter(db(), b, convA.id)).toBe(0);
   });
 
-  test("history is oldest first and its cursor is accepted only by the same Workspace", () => {
+  test("history is oldest first and its cursor is accepted only by the same Workspace and Conversation", () => {
     for (const text of ["1", "2", "3"]) post(text);
 
     const page1 = listMessages(db(), a, convA.id, { limit: 2 })!;
@@ -289,6 +289,10 @@ describe("the event log and history", () => {
     ]);
     expect(listMessages(db(), b, convA.id, {})).toBeUndefined();
     expect(() => listMessages(db(), b, convB.id, { cursor: page1.nextCursor })).toThrow(InvalidCursor);
+    const sameWorkspace = createConversation(db(), a, { primaryBotId: convA.primaryBotId, now })!;
+    expect(() => listMessages(db(), a, sameWorkspace.id, { cursor: page1.nextCursor })).toThrow(
+      InvalidCursor,
+    );
   });
 });
 
