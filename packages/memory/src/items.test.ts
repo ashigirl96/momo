@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { migrations as agentMigrations, postOwnerMessage, startNextRun, type Run } from "@momo/agent";
+import {
+  migrations as agentMigrations,
+  cancelRun,
+  postOwnerMessage,
+  startNextRun,
+  type Run,
+} from "@momo/agent";
 import type { MemoryItemDraft } from "@momo/contracts";
 import { migratedTestDatabase, type TestDatabase } from "@momo/migrator/testing";
 import {
@@ -132,6 +138,8 @@ describe("writing a Memory item", () => {
       now,
     })!.run;
     expect(write(a, "待っている Run の記憶", {}, queued)).toBeUndefined();
+    cancelRun(db(), a.tenant, a.run.id, now);
+    expect(write(a, "止めた Run の記憶", {}, a.run)).toBeUndefined();
 
     expect(listMemoryItems(db(), a.tenant, a.bot.id, {}).items).toEqual([]);
     expect(listMemoryItems(db(), b.tenant, b.bot.id, {}).items).toEqual([]);

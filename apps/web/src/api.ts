@@ -8,7 +8,10 @@ import {
   MemoryList,
   MessagePage,
   PostMessageResponse,
+  ResetSessionResponse,
+  RunItem,
   Status,
+  UpdateBotResponse,
   WorkspaceItem,
   WorkspaceList,
   type CreateBotRequest,
@@ -63,10 +66,14 @@ export const api = {
   createBot: (workspaceId: string, body: CreateBotRequest) =>
     request(`${scoped(workspaceId)}/bots`, BotItem, { method: "POST", body: JSON.stringify(body) }),
   updateBot: (workspaceId: string, botId: string, body: UpdateBotRequest) =>
-    request(`${scoped(workspaceId)}/bots/${encodeURIComponent(botId)}`, BotItem, {
+    request(`${scoped(workspaceId)}/bots/${encodeURIComponent(botId)}`, UpdateBotResponse, {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
+  cancelRun: (workspaceId: string, runId: string) =>
+    request(`${scoped(workspaceId)}/runs/${encodeURIComponent(runId)}/cancel`, RunItem, { method: "POST" }),
+  resetSession: (workspaceId: string, conversationId: string) =>
+    request(`${conversation(workspaceId, conversationId)}/reset`, ResetSessionResponse, { method: "POST" }),
   conversations: (workspaceId: string) => request(`${scoped(workspaceId)}/conversations`, ConversationList),
   createConversation: (workspaceId: string, body: CreateConversationRequest) =>
     request(`${scoped(workspaceId)}/conversations`, ConversationItem, {

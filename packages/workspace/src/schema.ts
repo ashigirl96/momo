@@ -21,6 +21,8 @@ export const bots = sqliteTable(
     workspaceId: workspaceIdColumn(),
     name: text("name").notNull(),
     instructions: text("instructions").notNull(),
+    /** Grows by one each time the instructions change; a Session records the one it ran with (#8). */
+    instructionsVersion: integer("instructions_version").notNull().default(1),
     model: text("model").$type<BotModel>().notNull(),
     tools: text("tools", { mode: "json" }).$type<BotTool[]>().notNull(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),

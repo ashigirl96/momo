@@ -43,6 +43,7 @@ describe("Bots", () => {
       workspaceId: a.workspaceId,
       name: "仕事 Bot",
       instructions: "議事録を手伝う",
+      instructionsVersion: 1,
       model: "sonnet",
       tools: ["memory"],
       createdAt: now,

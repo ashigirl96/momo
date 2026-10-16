@@ -1,4 +1,4 @@
-import type { ConversationEvent, RunStatus } from "@momo/contracts";
+import type { ConversationEvent, RunStatus, SessionCloseReason } from "@momo/contracts";
 import {
   conversationParticipants,
   conversations,
@@ -23,7 +23,10 @@ type Constraints = SQLiteTableExtraConfigValue[];
 
 export type SessionStatus = "open" | "closed";
 
-/** One Bot's model context in one Conversation. Its key is the Conversation and the Bot only (#8). */
+/**
+ * One Bot's model context in one Conversation. Its key is the Conversation and the Bot only (#8).
+ * A closed Session stays as the record of when it ran and with which instructions.
+ */
 export const sessions = sqliteTable(
   "sessions",
   {
@@ -32,8 +35,11 @@ export const sessions = sqliteTable(
     conversationId: text("conversation_id").notNull(),
     botId: text("bot_id").notNull(),
     status: text("status").$type<SessionStatus>().notNull(),
+    /** The Bot's `instructions_version` when the Session opened. */
+    botInstructionsVersion: integer("bot_instructions_version").notNull().default(1),
     openedAt: integer("opened_at", { mode: "timestamp_ms" }).notNull(),
     closedAt: integer("closed_at", { mode: "timestamp_ms" }),
+    closedBy: text("closed_by").$type<SessionCloseReason>(),
   },
   (t): Constraints => [
     workspaceKey(t),

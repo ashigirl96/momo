@@ -1,0 +1,916 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "0878d8b2-6949-48e5-8cba-4692f469254b",
+  "prevIds": [
+    "f0f2b531-de5c-465d-b7f3-20cb6a1a751a"
+  ],
+  "ddl": [
+    {
+      "name": "attachments",
+      "entityType": "tables"
+    },
+    {
+      "name": "conversation_events",
+      "entityType": "tables"
+    },
+    {
+      "name": "messages",
+      "entityType": "tables"
+    },
+    {
+      "name": "runs",
+      "entityType": "tables"
+    },
+    {
+      "name": "sessions",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "attachments"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "workspace_id",
+      "entityType": "columns",
+      "table": "attachments"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "message_id",
+      "entityType": "columns",
+      "table": "attachments"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "attachments"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "content_type",
+      "entityType": "columns",
+      "table": "attachments"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "size",
+      "entityType": "columns",
+      "table": "attachments"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "attachments"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": true,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "conversation_events"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "workspace_id",
+      "entityType": "columns",
+      "table": "conversation_events"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "conversation_id",
+      "entityType": "columns",
+      "table": "conversation_events"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "run_id",
+      "entityType": "columns",
+      "table": "conversation_events"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "event",
+      "entityType": "columns",
+      "table": "conversation_events"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "conversation_events"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "messages"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "workspace_id",
+      "entityType": "columns",
+      "table": "messages"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "conversation_id",
+      "entityType": "columns",
+      "table": "messages"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "author_kind",
+      "entityType": "columns",
+      "table": "messages"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "bot_id",
+      "entityType": "columns",
+      "table": "messages"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "run_id",
+      "entityType": "columns",
+      "table": "messages"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "text",
+      "entityType": "columns",
+      "table": "messages"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "messages"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "runs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "workspace_id",
+      "entityType": "columns",
+      "table": "runs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "conversation_id",
+      "entityType": "columns",
+      "table": "runs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "bot_id",
+      "entityType": "columns",
+      "table": "runs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "session_id",
+      "entityType": "columns",
+      "table": "runs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "actor_kind",
+      "entityType": "columns",
+      "table": "runs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "actor_login_id",
+      "entityType": "columns",
+      "table": "runs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "input_message_id",
+      "entityType": "columns",
+      "table": "runs"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "runs"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "table": "runs"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "started_at",
+      "entityType": "columns",
+      "table": "runs"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "finished_at",
+      "entityType": "columns",
+      "table": "runs"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "id",
+      "entityType": "columns",
+      "table": "sessions"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "workspace_id",
+      "entityType": "columns",
+      "table": "sessions"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "conversation_id",
+      "entityType": "columns",
+      "table": "sessions"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "bot_id",
+      "entityType": "columns",
+      "table": "sessions"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "status",
+      "entityType": "columns",
+      "table": "sessions"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "1",
+      "generated": null,
+      "name": "bot_instructions_version",
+      "entityType": "columns",
+      "table": "sessions"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "opened_at",
+      "entityType": "columns",
+      "table": "sessions"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "closed_at",
+      "entityType": "columns",
+      "table": "sessions"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "closed_by",
+      "entityType": "columns",
+      "table": "sessions"
+    },
+    {
+      "columns": [
+        "workspace_id"
+      ],
+      "tableTo": "workspaces",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_attachments_workspace_id_workspaces_id_fk",
+      "entityType": "fks",
+      "table": "attachments"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "message_id"
+      ],
+      "tableTo": "messages",
+      "columnsTo": [
+        "workspace_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_attachments_workspace_id_message_id_messages_workspace_id_id_fk",
+      "entityType": "fks",
+      "table": "attachments"
+    },
+    {
+      "columns": [
+        "workspace_id"
+      ],
+      "tableTo": "workspaces",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_conversation_events_workspace_id_workspaces_id_fk",
+      "entityType": "fks",
+      "table": "conversation_events"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "conversation_id"
+      ],
+      "tableTo": "conversations",
+      "columnsTo": [
+        "workspace_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_conversation_events_workspace_id_conversation_id_conversations_workspace_id_id_fk",
+      "entityType": "fks",
+      "table": "conversation_events"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "run_id"
+      ],
+      "tableTo": "runs",
+      "columnsTo": [
+        "workspace_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_conversation_events_workspace_id_run_id_runs_workspace_id_id_fk",
+      "entityType": "fks",
+      "table": "conversation_events"
+    },
+    {
+      "columns": [
+        "workspace_id"
+      ],
+      "tableTo": "workspaces",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_messages_workspace_id_workspaces_id_fk",
+      "entityType": "fks",
+      "table": "messages"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "conversation_id"
+      ],
+      "tableTo": "conversations",
+      "columnsTo": [
+        "workspace_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_messages_workspace_id_conversation_id_conversations_workspace_id_id_fk",
+      "entityType": "fks",
+      "table": "messages"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "run_id"
+      ],
+      "tableTo": "runs",
+      "columnsTo": [
+        "workspace_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_messages_workspace_id_run_id_runs_workspace_id_id_fk",
+      "entityType": "fks",
+      "table": "messages"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "conversation_id",
+        "bot_id"
+      ],
+      "tableTo": "conversation_participants",
+      "columnsTo": [
+        "workspace_id",
+        "conversation_id",
+        "bot_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_messages_workspace_id_conversation_id_bot_id_conversation_participants_workspace_id_conversation_id_bot_id_fk",
+      "entityType": "fks",
+      "table": "messages"
+    },
+    {
+      "columns": [
+        "workspace_id"
+      ],
+      "tableTo": "workspaces",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_runs_workspace_id_workspaces_id_fk",
+      "entityType": "fks",
+      "table": "runs"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "conversation_id",
+        "bot_id",
+        "session_id"
+      ],
+      "tableTo": "sessions",
+      "columnsTo": [
+        "workspace_id",
+        "conversation_id",
+        "bot_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_runs_workspace_id_conversation_id_bot_id_session_id_sessions_workspace_id_conversation_id_bot_id_id_fk",
+      "entityType": "fks",
+      "table": "runs"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "input_message_id"
+      ],
+      "tableTo": "messages",
+      "columnsTo": [
+        "workspace_id",
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_runs_workspace_id_input_message_id_messages_workspace_id_id_fk",
+      "entityType": "fks",
+      "table": "runs"
+    },
+    {
+      "columns": [
+        "workspace_id"
+      ],
+      "tableTo": "workspaces",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_sessions_workspace_id_workspaces_id_fk",
+      "entityType": "fks",
+      "table": "sessions"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "conversation_id",
+        "bot_id"
+      ],
+      "tableTo": "conversation_participants",
+      "columnsTo": [
+        "workspace_id",
+        "conversation_id",
+        "bot_id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "NO ACTION",
+      "nameExplicit": false,
+      "name": "fk_sessions_workspace_id_conversation_id_bot_id_conversation_participants_workspace_id_conversation_id_bot_id_fk",
+      "entityType": "fks",
+      "table": "sessions"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "attachments_pk",
+      "table": "attachments",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "conversation_events_pk",
+      "table": "conversation_events",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "messages_pk",
+      "table": "messages",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "runs_pk",
+      "table": "runs",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "sessions_pk",
+      "table": "sessions",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        {
+          "value": "workspace_id",
+          "isExpression": false
+        },
+        {
+          "value": "message_id",
+          "isExpression": false
+        },
+        {
+          "value": "id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "attachments_message",
+      "entityType": "indexes",
+      "table": "attachments"
+    },
+    {
+      "columns": [
+        {
+          "value": "workspace_id",
+          "isExpression": false
+        },
+        {
+          "value": "conversation_id",
+          "isExpression": false
+        },
+        {
+          "value": "id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "conversation_events_conversation",
+      "entityType": "indexes",
+      "table": "conversation_events"
+    },
+    {
+      "columns": [
+        {
+          "value": "workspace_id",
+          "isExpression": false
+        },
+        {
+          "value": "conversation_id",
+          "isExpression": false
+        },
+        {
+          "value": "id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "messages_conversation",
+      "entityType": "indexes",
+      "table": "messages"
+    },
+    {
+      "columns": [
+        {
+          "value": "session_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": "\"runs\".\"status\" = 'running'",
+      "origin": "manual",
+      "name": "runs_one_running",
+      "entityType": "indexes",
+      "table": "runs"
+    },
+    {
+      "columns": [
+        {
+          "value": "session_id",
+          "isExpression": false
+        },
+        {
+          "value": "status",
+          "isExpression": false
+        }
+      ],
+      "isUnique": false,
+      "where": null,
+      "origin": "manual",
+      "name": "runs_session_status",
+      "entityType": "indexes",
+      "table": "runs"
+    },
+    {
+      "columns": [
+        {
+          "value": "conversation_id",
+          "isExpression": false
+        },
+        {
+          "value": "bot_id",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": "\"sessions\".\"status\" = 'open'",
+      "origin": "manual",
+      "name": "sessions_one_open",
+      "entityType": "indexes",
+      "table": "sessions"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "attachments_workspace_id_id_unique",
+      "entityType": "uniques",
+      "table": "attachments"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "conversation_events_workspace_id_id_unique",
+      "entityType": "uniques",
+      "table": "conversation_events"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "messages_workspace_id_id_unique",
+      "entityType": "uniques",
+      "table": "messages"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "runs_workspace_id_id_unique",
+      "entityType": "uniques",
+      "table": "runs"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "sessions_workspace_id_id_unique",
+      "entityType": "uniques",
+      "table": "sessions"
+    },
+    {
+      "columns": [
+        "workspace_id",
+        "conversation_id",
+        "bot_id",
+        "id"
+      ],
+      "nameExplicit": false,
+      "name": "sessions_workspace_id_conversation_id_bot_id_id_unique",
+      "entityType": "uniques",
+      "table": "sessions"
+    },
+    {
+      "value": "(\"author_kind\" = 'owner' AND \"bot_id\" IS NULL AND \"run_id\" IS NULL) OR (\"author_kind\" = 'bot' AND \"bot_id\" IS NOT NULL AND \"run_id\" IS NOT NULL)",
+      "name": "messages_author",
+      "entityType": "checks",
+      "table": "messages"
+    }
+  ],
+  "renames": []
+}

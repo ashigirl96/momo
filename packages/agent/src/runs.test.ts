@@ -16,7 +16,7 @@ import { eventsAfter, streamAfter } from "./events.ts";
 import { migrations } from "./index.ts";
 import { listMessages } from "./messages.ts";
 import { postOwnerMessage } from "./post-message.ts";
-import { appendRunDelta, failInterruptedRuns, finishRun, getRun, startNextRun } from "./runs.ts";
+import { appendRunDelta, cancelRun, failInterruptedRuns, finishRun, getRun, startNextRun } from "./runs.ts";
 
 const now = new Date("2026-10-01T00:00:00Z");
 const later = new Date("2026-10-01T00:00:05Z");
@@ -206,6 +206,51 @@ describe("the Run lifecycle", () => {
     );
     expect(getRun(db(), a, first.id)?.status).toBe("failed");
     expect(kinds(a, convA).at(-1)).toBe("run_finished");
+  });
+});
+
+describe("cancelling a Run", () => {
+  test("a Run cancelled mid-reply keeps what it wrote as a Bot message marked cancelled", () => {
+    const { run } = post("長い話")!;
+    startNextRun(db(), a, run.sessionId, now);
+    appendRunDelta(db(), a, run.id, "途中ま", now);
+
+    expect(cancelRun(db(), a, run.id, later)?.status).toBe("cancelled");
+    expect(appendRunDelta(db(), a, run.id, "で", later)).toBe(false);
+    expect(getRun(db(), a, run.id)).toMatchObject({ status: "cancelled", finishedAt: later });
+    expect(listMessages(db(), a, convA.id, {})!.items[1]).toMatchObject({
+      author: { kind: "bot", runId: run.id, cancelled: true },
+      text: "途中ま",
+    });
+    expect(kinds(a, convA).slice(-2)).toEqual(["message_created", "run_finished"]);
+    expect(eventsAfter(db(), a, convA.id, 0).at(-1)?.event).toEqual({
+      kind: "run_finished",
+      runId: run.id,
+      status: "cancelled",
+    });
+  });
+
+  test("a queued Run is cancelled before it starts and never runs", () => {
+    const first = post("1")!.run;
+    const second = post("2")!.run;
+    startNextRun(db(), a, first.sessionId, now);
+
+    expect(cancelRun(db(), a, second.id, now)?.status).toBe("cancelled");
+    finishRun(db(), a, first.id, { outcome: "completed", now });
+    expect(startNextRun(db(), a, first.sessionId, now)).toBeUndefined();
+    expect(listMessages(db(), a, convA.id, {})!.items.map((m) => m.author.kind)).toEqual(["owner", "owner"]);
+  });
+
+  test("a finished Run stays as it finished, and another Workspace's Run is not found", () => {
+    const { run } = post("1")!;
+    startNextRun(db(), a, run.sessionId, now);
+    appendRunDelta(db(), a, run.id, "返事", now);
+
+    expect(cancelRun(db(), b, run.id, now)).toBeUndefined();
+    expect(getRun(db(), a, run.id)?.status).toBe("running");
+    finishRun(db(), a, run.id, { outcome: "completed", now });
+    expect(cancelRun(db(), a, run.id, later)?.status).toBe("completed");
+    expect(listMessages(db(), a, convA.id, {})!.items[1]?.author).toMatchObject({ cancelled: false });
   });
 });
 
