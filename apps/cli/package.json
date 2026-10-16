@@ -7,5 +7,8 @@
   "type": "module",
   "dependencies": {
     "@momo/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@momo/backend": "workspace:*"
   }
 }
