@@ -55,8 +55,12 @@ _Avoid_: file, upload
 _Avoid_: channel link, subscription
 
 **Memory item**:
-Bot が Conversation をまたいで持ち越す長期の記憶の 1 件。1 体の Bot に属し、別の Conversation へ知識が渡る唯一の経路になる。
+Bot が Conversation をまたいで持ち越す長期の記憶の 1 件。1 体の Bot に属し、別の Conversation へ知識が渡る唯一の経路になる。その Bot が参加するどの Conversation でも同じものを引ける。
 _Avoid_: note, knowledge
+
+**Memory index**:
+Bot が自分で書き直す、自分の Memory item への地図になる 1 件の Memory item。Session の始めに Bot へ渡る記憶はこれだけで、ほかの Memory item は Bot が探して引く。
+_Avoid_: core memory, MEMORY.md
 
 ### 外部接続
 

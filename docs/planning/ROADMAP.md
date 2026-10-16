@@ -174,7 +174,7 @@ Drizzle Kitはschemaの参照先とSQL/snapshotの出力先、および複数con
 | ConnectionRequest | Botから人への「接続/追加権限が必要」という要求 |
 | Policy / Approval | 常設規則 / 特定リクエストに対する期限付きの判断 |
 | Operation | Gatewayが管理する一回の外部操作。承認・送信・結果不明も記録 |
-| Memory item | Botの長期記憶。出典・scope・公開範囲・version・削除状態を持つ |
+| Memory item | Botの長期記憶。出典とWorkspace/Bot scopeを持ち、公開範囲と版は持たない（[ADR-0011](../adr/0011-memory-bounded-by-bot-without-audience.md)） |
 | Channel binding | 外部チャネルを内部Workspace/Conversation/Botへ結びつける設定 |
 
 `Session`の自然なscopeは `(workspace_id, conversation_id, bot_id, provider)`。同じBotを二つの会話に入れても、会話履歴そのものは一つに結合しない。Botを別Workspaceへ移動する機能は初版で禁止し、明示的な新規作成・選択的インポートとする。
@@ -337,7 +337,7 @@ fake agentでよいので `Web → backend → SQLite → response stream → �
 
 各domain内にDrizzle schema・migration・操作関数を置き、Repository層は作らない。最初のWorkspaceの縦切りでDB接続とmigrationの取りまとめを最小構成で通し、memory等を追加する際にdomainごとの履歴分離・依存順を検証する。DBだけの独立大規模チケットにはしない。
 
-基礎のmemory record（明示的なメモの保存/表示/削除）もここで入れる。検索や自動抽出はP7。各record・cache・SSE購読・artifactにWorkspace/Bot scopeを持たせる。
+基礎のmemory record（明示的なメモの保存/表示/削除と全文検索）もここで入れる。自動抽出はP7。各record・cache・SSE購読・artifactにWorkspace/Bot scopeを持たせる。
 
 **P2 gate:** 2 Workspace・2 Bot・2会話のfixtureで、ID差替え、購読、検索候補、添付アクセスが混ざらない。再起動後も保存状態が戻る。各domainのmigrationから空DBを作り、旧DBを更新できる。同名/逆順のmigrationでも履歴を取り違えず、再実行で重複DDLが起きない。
 
@@ -377,11 +377,11 @@ OAuthを共通化してもoperationとGrantは別。必要なscopeを段階的�
 
 ### P7 — 記憶・グループ・継続的なBot
 
-P2の記憶基盤を発展させる。最初は明示メモ＋会話要約＋全文検索でよく、vector DBや自動dreamは後で計測して選ぶ。記憶ごとにsource、workspace、bot、audience、version、created/updated、tombstoneを持つ。
+P2の記憶基盤を発展させる。最初は明示メモ＋会話要約＋全文検索でよく、vector DBや自動dreamは後で計測して選ぶ。記憶ごとにsource、workspace、bot、created/updatedを持ち、audience・version・tombstoneは持たない（ADR-0011）。
 
 記憶の正本はSQLite、`CLAUDE.md`等は必要に応じて生成するprojectionとする。逆にファイルを正本にしたい場合も可能だが、双方向に同じ情報を書いて二つの正本を作らない。忘却は検索index・session summary・cache・生成projectionにも波及させ、バックアップ保持の限界も表示する。
 
-グループ会話はまず明示mention/選択されたBotだけを起動し、複数Botが無限に呼び合う自律討論はデフォルト無効。各Botは自分のSessionを持ち、共有するのはそのConversationの公開messageである。private memoryをgroup向け出力へ転用する際のaudience制限を設計する。
+グループ会話はまず明示mention/選択されたBotだけを起動し、複数Botが無限に呼び合う自律討論はデフォルト無効。各Botは自分のSessionを持ち、共有するのはそのConversationの公開messageである。記憶はBotが参加する全Conversationで共有し、group向けに分けたい記憶はBotを分けて持たせる（ADR-0011）。
 
 Jobはtimezone、期限、missed-run方針、lease、予算、同時実行制限、停止を持つ。日次通知と承認待ちを両立させ、実行時に現在のGrantを再評価する。UIを閉じてもJobの管理が続く。
 
