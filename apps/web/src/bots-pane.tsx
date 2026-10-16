@@ -4,35 +4,62 @@ import {
   DEFAULT_BOT_TOOLS,
   type BotItem,
   type BotSettingsProposal,
+  type ConversationItem,
   type WorkspaceItem,
 } from "@momo/contracts";
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/api";
 import { BotAvatar } from "@/bot-avatar";
 import { BotSettingsCard, SaveDiscard, type CardSettings, type CardStatus } from "@/bot-settings-card";
+import { BotBubble, ChatFrame, Composer, HumanBubble, useAlive } from "@/chat-parts";
+import { ConversationView } from "@/conversation-view";
 import { cn } from "@/lib/utils";
 
-type Selection = { kind: "none" } | { kind: "create"; attempt: number } | { kind: "bot"; id: string };
+type Selection =
+  | { kind: "none" }
+  | { kind: "create"; attempt: number }
+  | { kind: "conversation"; id: string }
+  | { kind: "bot"; id: string; from: string };
+
+const timeFormat = new Intl.DateTimeFormat("ja-JP", { dateStyle: "short", timeStyle: "short" });
 
 /** Mount with `key={workspace.id}` so nothing from the previous Workspace survives a switch. */
 export function BotsPane({ workspace }: { workspace: WorkspaceItem }) {
   const [bots, setBots] = useState<BotItem[] | undefined>(undefined);
+  const [conversations, setConversations] = useState<ConversationItem[] | undefined>(undefined);
   const [selection, setSelection] = useState<Selection>({ kind: "none" });
+  const [failed, setFailed] = useState(false);
   const alive = useAlive();
 
   useEffect(() => {
-    api.bots(workspace.id).then((list) => {
-      if (alive.current) setBots(list.bots);
+    Promise.all([api.bots(workspace.id), api.conversations(workspace.id)]).then(([b, c]) => {
+      if (!alive.current) return;
+      setBots(b.bots);
+      setConversations(c.conversations);
     });
   }, [workspace.id, alive]);
 
+  const startConversation = (bot: BotItem) => {
+    setFailed(false);
+    api
+      .createConversation(workspace.id, { primaryBotId: bot.id })
+      .then((conversation) => {
+        if (!alive.current) return;
+        setConversations((list) => [conversation, ...(list ?? [])]);
+        setSelection({ kind: "conversation", id: conversation.id });
+      })
+      .catch(() => alive.current && setFailed(true));
+  };
   const saved = (bot: BotItem) => {
     setBots((list) => [bot, ...(list ?? []).filter((b) => b.id !== bot.id)]);
-    setSelection({ kind: "bot", id: bot.id });
+    startConversation(bot);
   };
   const changed = (bot: BotItem) => setBots((list) => list?.map((b) => (b.id === bot.id ? bot : b)));
 
-  const selectedBot = selection.kind === "bot" ? bots?.find((b) => b.id === selection.id) : undefined;
+  const botOf = (id: string) => bots?.find((b) => b.id === id);
+  const selected =
+    selection.kind === "conversation" ? conversations?.find((c) => c.id === selection.id) : undefined;
+  const selectedBot = selection.kind === "bot" ? botOf(selection.id) : undefined;
 
   return (
     <div className="flex flex-1">
@@ -52,26 +79,32 @@ export function BotsPane({ workspace }: { workspace: WorkspaceItem }) {
           </button>
         </div>
         <ul data-testid="conversation-list" className="flex flex-1 flex-col gap-1 overflow-y-auto px-2">
-          {bots?.map((bot) => (
-            <li key={bot.id}>
-              <button
-                type="button"
-                onClick={() => setSelection({ kind: "bot", id: bot.id })}
-                aria-current={selectedBot?.id === bot.id ? "true" : undefined}
-                className={cn(
-                  "hover:bg-muted flex w-full items-center gap-2 rounded-md px-2 py-2 text-left",
-                  selectedBot?.id === bot.id && "bg-muted",
-                )}
-              >
-                <BotAvatar name={bot.name} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{bot.name}</span>
-                  <span className="text-muted-foreground block truncate text-xs">{bot.instructions}</span>
-                </span>
-              </button>
-            </li>
-          ))}
-          {bots?.length === 0 && (
+          {conversations?.map((c) => {
+            const bot = botOf(c.primaryBotId);
+            const current = selected?.id === c.id;
+            return (
+              <li key={c.id}>
+                <button
+                  type="button"
+                  onClick={() => setSelection({ kind: "conversation", id: c.id })}
+                  aria-current={current ? "true" : undefined}
+                  className={cn(
+                    "hover:bg-muted flex w-full items-center gap-2 rounded-md px-2 py-2 text-left",
+                    current && "bg-muted",
+                  )}
+                >
+                  <BotAvatar name={bot?.name ?? "Bot"} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{bot?.name ?? "Bot"}</span>
+                    <span className="text-muted-foreground block truncate text-xs">
+                      {timeFormat.format(c.createdAt)} に開始
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+          {conversations?.length === 0 && (
             <li className="text-muted-foreground p-2 text-xs">右上の ＋ から Bot を作る</li>
           )}
         </ul>
@@ -79,31 +112,61 @@ export function BotsPane({ workspace }: { workspace: WorkspaceItem }) {
       <section className="flex flex-1 flex-col">
         {selection.kind === "create" ? (
           <CreateBot key={selection.attempt} workspace={workspace} onSaved={saved} />
-        ) : selectedBot ? (
-          <BotSettingsView key={selectedBot.id} workspace={workspace} bot={selectedBot} onChanged={changed} />
+        ) : selected ? (
+          <ConversationView
+            key={selected.id}
+            workspace={workspace}
+            conversation={selected}
+            bot={botOf(selected.primaryBotId)}
+            actions={
+              botOf(selected.primaryBotId) && (
+                <ConversationActions
+                  onSettings={() =>
+                    setSelection({ kind: "bot", id: selected.primaryBotId, from: selected.id })
+                  }
+                  onNew={() => startConversation(botOf(selected.primaryBotId)!)}
+                />
+              )
+            }
+          />
+        ) : selectedBot && selection.kind === "bot" ? (
+          <BotSettingsView
+            key={selectedBot.id}
+            workspace={workspace}
+            bot={selectedBot}
+            onChanged={changed}
+            onBack={() => setSelection({ kind: "conversation", id: selection.from })}
+          />
         ) : (
-          bots && (
+          conversations && (
             <p className="text-muted-foreground m-auto text-sm">
-              {bots.length > 0
+              {conversations.length > 0
                 ? "左の一覧か ＋ から会話を始める"
                 : "この Workspace にはまだ Bot がいません。左上の ＋ から作る"}
             </p>
           )
         )}
+        {failed && <p className="text-destructive p-4 text-sm">会話を始められませんでした。</p>}
       </section>
     </div>
   );
 }
 
-function useAlive() {
-  const alive = useRef(true);
-  useEffect(() => {
-    alive.current = true;
-    return () => {
-      alive.current = false;
-    };
-  }, []);
-  return alive;
+function ConversationActions(props: { onSettings: () => void; onNew: () => void }) {
+  return (
+    <>
+      <button type="button" onClick={props.onNew} className="hover:bg-muted rounded-md px-2 py-1 text-xs">
+        新しい会話
+      </button>
+      <button
+        type="button"
+        onClick={props.onSettings}
+        className="hover:bg-muted rounded-md px-2 py-1 text-xs"
+      >
+        Bot の設定
+      </button>
+    </>
+  );
 }
 
 type Proposal = BotSettingsProposal & { status: CardStatus; settings: CardSettings };
@@ -150,7 +213,7 @@ function CreateBot({ workspace, onSaved }: { workspace: WorkspaceItem; onSaved: 
   const open = proposal?.status === "pending";
 
   return (
-    <Conversation
+    <ChatFrame
       title="新しい Bot"
       composer={
         <Composer
@@ -189,7 +252,7 @@ function CreateBot({ workspace, onSaved }: { workspace: WorkspaceItem; onSaved: 
         <BotBubble>わかりました。どんな Bot にしたいか、もう一度教えてください。</BotBubble>
       )}
       {failed && <p className="text-destructive text-sm">うまくいきませんでした。もう一度試してください。</p>}
-    </Conversation>
+    </ChatFrame>
   );
 }
 
@@ -197,6 +260,7 @@ function BotSettingsView(props: {
   workspace: WorkspaceItem;
   bot: BotItem;
   onChanged: (bot: BotItem) => void;
+  onBack: () => void;
 }) {
   const [settings, setSettings] = useState<CardSettings>({ model: props.bot.model, tools: props.bot.tools });
   const [busy, setBusy] = useState(false);
@@ -218,7 +282,14 @@ function BotSettingsView(props: {
   };
 
   return (
-    <Conversation title={props.bot.name}>
+    <ChatFrame
+      title={props.bot.name}
+      actions={
+        <button type="button" onClick={props.onBack} className="hover:bg-muted rounded-md px-2 py-1 text-xs">
+          会話に戻る
+        </button>
+      }
+    >
       <BotSettingsCard
         workspace={props.workspace}
         name={props.bot.name}
@@ -229,70 +300,6 @@ function BotSettingsView(props: {
         actions={dirty && <SaveDiscard busy={busy} onSave={save} saveLabel="変更を保存" />}
       />
       {failed && <p className="text-destructive text-sm">保存できませんでした。</p>}
-    </Conversation>
-  );
-}
-
-function Conversation(props: { title: string; children: ReactNode; composer?: ReactNode }) {
-  return (
-    <>
-      <div className="flex items-center gap-2 border-b px-4 py-2">
-        <BotAvatar name={props.title} size="sm" />
-        <span className="text-sm font-medium" data-testid="conversation-title">
-          {props.title}
-        </span>
-      </div>
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-4">{props.children}</div>
-      {props.composer}
-    </>
-  );
-}
-
-function BotBubble({ children }: { children: ReactNode }) {
-  return <div className="bg-muted max-w-[70%] self-start rounded-2xl px-3 py-2 text-sm">{children}</div>;
-}
-
-function HumanBubble({ children }: { children: ReactNode }) {
-  return (
-    <div className="bg-primary text-primary-foreground max-w-[70%] self-end whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm">
-      {children}
-    </div>
-  );
-}
-
-function Composer(props: {
-  placeholder: string;
-  disabled: boolean;
-  maxLength: number;
-  onSend: (text: string) => void;
-}) {
-  const [text, setText] = useState("");
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    if (text.trim() === "") return;
-    props.onSend(text.trim());
-    setText("");
-  };
-  return (
-    <form onSubmit={submit} className="flex items-center gap-2 border-t p-3">
-      <input
-        autoFocus
-        value={text}
-        maxLength={props.maxLength}
-        onChange={(e) => setText(e.target.value)}
-        placeholder={props.placeholder}
-        aria-label={props.placeholder}
-        disabled={props.disabled}
-        className="flex-1 rounded-full border px-4 py-2 text-sm"
-      />
-      <button
-        type="submit"
-        aria-label="送る"
-        disabled={props.disabled || text.trim() === ""}
-        className="bg-primary text-primary-foreground flex size-9 items-center justify-center rounded-full disabled:opacity-40"
-      >
-        ↑
-      </button>
-    </form>
+    </ChatFrame>
   );
 }
