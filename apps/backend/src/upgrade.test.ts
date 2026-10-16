@@ -57,7 +57,6 @@ type Seeded = {
   secret: string;
 };
 
-/** Rows written the way the previous version's schema has them, for one Workspace. */
 function seedWorkspace(sqlite: Database, dataDir: string, name: string): Seeded {
   const s: Seeded = {
     workspaceId: id("workspace"),
@@ -220,7 +219,6 @@ function tableCounts(sqlite: Database): Record<string, number> {
   );
 }
 
-/** A data dir whose app.db has the previous version's migrations and rows of two Workspaces. */
 function previousVersionDataDir() {
   const dataDir = tempDir("momo-up-");
   const sqlite = openDatabase(join(dataDir, "app.db"));

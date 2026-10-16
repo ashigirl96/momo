@@ -2,10 +2,7 @@ import { z } from "zod";
 
 const epochMs = z.int().nonnegative();
 
-/**
- * queued → running → completed | failed | cancelled. A Session runs one Run at a time;
- * a Run left running when the backend stopped is failed on the next start.
- */
+/** A Run left running when the backend stopped is failed on the next start. */
 export const RunStatus = z.enum(["queued", "running", "completed", "failed", "cancelled"]);
 export type RunStatus = z.infer<typeof RunStatus>;
 

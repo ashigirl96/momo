@@ -21,7 +21,7 @@ export const bots = sqliteTable(
     workspaceId: workspaceIdColumn(),
     name: text("name").notNull(),
     instructions: text("instructions").notNull(),
-    /** Grows by one each time the instructions change; a Session records the one it ran with (#8). */
+    /** A Session records the version it ran with. */
     instructionsVersion: integer("instructions_version").notNull().default(1),
     model: text("model").$type<BotModel>().notNull(),
     tools: text("tools", { mode: "json" }).$type<BotTool[]>().notNull(),
@@ -42,7 +42,6 @@ export const conversations = sqliteTable(
 
 export type ParticipantRole = "primary" | "member";
 
-/** The Bots taking part in a Conversation. P2 has only the primary Bot; P7 adds members. */
 export const conversationParticipants = sqliteTable(
   "conversation_participants",
   {

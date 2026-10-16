@@ -1,6 +1,7 @@
 #!/bin/sh
 # Fails when a domain's schema.ts has changes without a generated migration,
-# or when drizzle-kit check finds the migration history inconsistent.
+# when drizzle-kit check finds the migration history inconsistent,
+# or when a domain's migration creates, drops or alters another domain's table.
 set -eu
 root=$(cd "$(dirname "$0")/.." && pwd)
 kit="$root/node_modules/.bin/drizzle-kit"
@@ -17,4 +18,5 @@ for config in "$root"/packages/*/drizzle.config.ts "$root"/packages/*/fixture/dr
   fi
   (cd "$dir" && "$kit" check >/dev/null) || { echo "drizzle-kit check failed in $domain"; status=1; }
 done
+bun "$root/scripts/migration-ownership.ts" || { echo "a migration touches another domain's table"; status=1; }
 exit "$status"

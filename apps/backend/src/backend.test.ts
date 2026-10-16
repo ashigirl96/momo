@@ -128,7 +128,7 @@ describe("request guard", () => {
   test("API requests without a Login are refused", async () => {
     const b = await backend();
 
-    for (const path of ["/api/status", "/api/logins", "/api/events"]) {
+    for (const path of ["/api/status", "/api/logins", "/api/workspaces"]) {
       const res = await b.call(path);
       expect(res.status).toBe(401);
       expect(await res.json()).toMatchObject({ error: { kind: "unauthenticated" } });
@@ -230,20 +230,6 @@ describe("UI", () => {
 
     expect(res.status).toBe(404);
     expect(await res.json()).toMatchObject({ error: { kind: "not_found" } });
-  });
-
-  test("the event stream is served same-origin to a Login", async () => {
-    const b = await backend();
-    const cookie = await b.login();
-
-    const res = await b.call("/api/events", { cookie });
-
-    expect(res.status).toBe(200);
-    expect(res.headers.get("content-type")).toStartWith("text/event-stream");
-    const reader = res.body!.getReader();
-    const first = new TextDecoder().decode((await reader.read()).value);
-    expect(first).toContain("event: ready");
-    await reader.cancel();
   });
 });
 

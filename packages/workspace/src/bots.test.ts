@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/bun-sqlite";
 import { createBot, getBot, listBots, updateBot } from "./bots.ts";
 import { migrations } from "./index.ts";
 import { InvalidCursor } from "./paging.ts";
-import { resolveTenant, type TenantContext } from "./tenant.ts";
+import { resolveWorkspaceScope, type WorkspaceScope } from "./workspace-scope.ts";
 import { workspaceOwnedTableProblems } from "./testing.ts";
 import { createWorkspace } from "./workspaces.ts";
 
@@ -19,13 +19,13 @@ const settings = {
 
 let testDb: TestDatabase;
 const db = () => drizzle({ client: testDb.sqlite });
-let a: TenantContext;
-let b: TenantContext;
+let a: WorkspaceScope;
+let b: WorkspaceScope;
 
 beforeEach(() => {
   testDb = migratedTestDatabase([migrations]);
-  a = resolveTenant(db(), createWorkspace(db(), { name: "A", now }).id, owner)!;
-  b = resolveTenant(db(), createWorkspace(db(), { name: "B", now }).id, owner)!;
+  a = resolveWorkspaceScope(db(), createWorkspace(db(), { name: "A", now }).id, owner)!;
+  b = resolveWorkspaceScope(db(), createWorkspace(db(), { name: "B", now }).id, owner)!;
 });
 
 afterEach(() => {
@@ -59,7 +59,7 @@ describe("Bots", () => {
     expect(listBots(db(), b, {}).items.map((bot) => bot.name)).toEqual(["B の Bot"]);
   });
 
-  test("another Workspace's TenantContext neither reads nor updates a Bot", () => {
+  test("another Workspace's WorkspaceScope neither reads nor updates a Bot", () => {
     const bot = createBot(db(), a, { ...settings, tools: [], now });
 
     expect(getBot(db(), b, bot.id)).toBeUndefined();

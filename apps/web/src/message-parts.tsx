@@ -13,7 +13,7 @@ export function useAlive() {
   return alive;
 }
 
-export function ChatFrame(props: {
+export function MessageFrame(props: {
   title: string;
   children: ReactNode;
   composer?: ReactNode;

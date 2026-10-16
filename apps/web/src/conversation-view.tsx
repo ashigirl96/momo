@@ -12,7 +12,7 @@ import {
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "@/api";
 import { AttachmentFrame } from "@/attachment-frame";
-import { BotBubble, ChatFrame, Composer, HumanBubble, useAlive } from "@/chat-parts";
+import { BotBubble, MessageFrame, Composer, HumanBubble, useAlive } from "@/message-parts";
 import {
   applyEvent,
   emptyConversation,
@@ -30,11 +30,7 @@ function parseJson(text: string): unknown {
   }
 }
 
-/**
- * Loads the history, then follows the Conversation's SSE stream from where the history ends.
- * Everything is dropped when the Workspace or Conversation changes, so a late answer from the
- * previous one never lands here.
- */
+/** Everything is dropped when the Workspace or Conversation changes, so a late answer from the previous one never lands here. */
 function useConversation(workspaceId: string, conversationId: string) {
   const [state, setState] = useState<ConversationState | undefined>(undefined);
   const [failed, setFailed] = useState(false);
@@ -120,7 +116,7 @@ export function ConversationView(props: {
   const reset = () => act(api.resetSession(props.workspace.id, props.conversation.id));
 
   return (
-    <ChatFrame
+    <MessageFrame
       title={name}
       actions={
         <>
@@ -198,6 +194,6 @@ export function ConversationView(props: {
       {(failed || sendFailed) && (
         <p className="text-destructive text-sm">うまくいきませんでした。もう一度試してください。</p>
       )}
-    </ChatFrame>
+    </MessageFrame>
   );
 }

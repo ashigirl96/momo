@@ -58,7 +58,6 @@ async function say(cookie: string, base: string, text: string): Promise<PostMess
   return PostMessageResponse.parse(await res.json());
 }
 
-/** Reads SSE frames until `until` matches one, or the server ends the stream. */
 async function frames(
   res: Response,
   until: (frame: Frame) => boolean = () => false,
@@ -267,6 +266,33 @@ describe("SSE resume and authorization", () => {
     expect((await frames(stream, undefined, 1000)).ended).toBe(true);
   });
 
+  test("an open stream sends nothing more once its Login is revoked, before the periodic check", async () => {
+    b = await startTestBackend({ streamCheckMs: 60_000 });
+    const cookie = await b.login();
+    const other = await b.login("other");
+    const { base } = await setup(cookie, "個人");
+    const stream = await b.call(`${base}/events`, { cookie });
+    const loginId = ((await (await b.call("/api/status", { cookie })).json()) as { loginId: string }).loginId;
+    await b.call(`/api/logins/${loginId}`, { method: "DELETE", cookie: other });
+    await say(other, base, "取り消し後の発言");
+
+    const after = await frames(stream, undefined, 1000);
+    expect(after.frames).toEqual([]);
+    expect(after.ended).toBe(true);
+  });
+
+  test("an open stream ends at once when its Workspace is deleted", async () => {
+    b = await startTestBackend({ streamCheckMs: 60_000 });
+    const cookie = await b.login();
+    const { w, base } = await setup(cookie, "個人");
+    const stream = await b.call(`${base}/events`, { cookie });
+    expect((await b.call(`/api/workspaces/${w.id}`, { method: "DELETE", cookie })).status).toBe(204);
+
+    const after = await frames(stream, undefined, 1000);
+    expect(after.frames).toEqual([]);
+    expect(after.ended).toBe(true);
+  });
+
   test("a Last-Event-ID that is not a whole number is refused", async () => {
     b = await startTestBackend();
     const cookie = await b.login();
@@ -377,7 +403,6 @@ async function reset(cookie: string, base: string) {
 
 const LONG = "とても長い返事をください。".repeat(5);
 
-/** The Conversation's events from the start until `until` matches, on a fresh stream. */
 async function eventsUntil(cookie: string, base: string, until: (frame: Frame) => boolean) {
   const stream = await b.call(`${base}/events?after=0`, { cookie });
   return (await frames(stream, until)).frames.map((f) => f.event);

@@ -12,5 +12,5 @@ export { bots, conversationParticipants, conversations } from "./schema.ts";
 export * from "./logins.ts";
 export * from "./paging.ts";
 export * from "./scoped.ts";
-export * from "./tenant.ts";
+export * from "./workspace-scope.ts";
 export * from "./workspaces.ts";

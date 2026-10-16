@@ -1,14 +1,21 @@
 import { runs } from "@momo/agent";
 import type { MemoryItemDraft, MemoryProvenance } from "@momo/contracts";
 import type { Db } from "@momo/migrator";
-import { decodeCursor, inTenant, pageLimit, toPage, type Page, type TenantContext } from "@momo/workspace";
+import {
+  decodeCursor,
+  inWorkspace,
+  pageLimit,
+  toPage,
+  type Page,
+  type WorkspaceScope,
+} from "@momo/workspace";
 import { and, desc, eq, inArray, lt, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
 import { memoryItems, type MemoryWriter } from "./schema.ts";
 
 export type MemoryRow = typeof memoryItems.$inferSelect;
 
-/** A Memory item with who wrote it, resolved to the Conversation of each Run while it exists. */
+/** Provenance resolves to each Run's Conversation while it exists. */
 export type MemoryRecord = MemoryRow & { created: MemoryProvenance; updated: MemoryProvenance };
 
 const SEARCH_LIMIT = 20;
@@ -18,27 +25,24 @@ const TRIGRAM = 3;
 
 const listName = (botId: string) => `memory_items:${botId}`;
 
-/**
- * Writes a Memory item for the Bot of a Run that is running in the tenant. The Bot, the Run and
- * the writer come from that Run, never from the tool's arguments.
- */
+/** The Bot, the Run and the writer come from the Run, never from the tool's arguments. */
 export function writeMemoryItem(
   db: Db,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   input: { runId: string; item: MemoryItemDraft; now: Date },
 ): MemoryRecord | undefined {
   return db.transaction((tx) => {
     const run = tx
       .select({ id: runs.id, botId: runs.botId })
       .from(runs)
-      .where(and(inTenant(runs, tenant), eq(runs.id, input.runId), eq(runs.status, "running")))
+      .where(and(inWorkspace(runs, workspaceScope), eq(runs.id, input.runId), eq(runs.status, "running")))
       .get();
     if (!run) return undefined;
     const row = tx
       .insert(memoryItems)
       .values({
         id: `memory_${Bun.randomUUIDv7()}`,
-        workspaceId: tenant.workspaceId,
+        workspaceId: workspaceScope.workspaceId,
         botId: run.botId,
         type: input.item.type,
         title: input.item.title,
@@ -55,36 +59,35 @@ export function writeMemoryItem(
       })
       .returning()
       .get();
-    return withProvenance(tx, tenant, eq(memoryItems.id, row.id))[0];
+    return withProvenance(tx, workspaceScope, eq(memoryItems.id, row.id))[0];
   });
 }
 
 export function getMemoryItem(
   db: Db,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   botId: string,
   id: string,
 ): MemoryRecord | undefined {
-  return withProvenance(db, tenant, and(eq(memoryItems.botId, botId), eq(memoryItems.id, id)))[0];
+  return withProvenance(db, workspaceScope, and(eq(memoryItems.botId, botId), eq(memoryItems.id, id)))[0];
 }
 
-/** A Bot's Memory items, newest first. */
 export function listMemoryItems(
   db: Db,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   botId: string,
   options: { cursor?: string; limit?: number },
 ): Page<MemoryRecord> {
   const limit = pageLimit(options.limit);
   const before =
-    options.cursor === undefined ? undefined : decodeCursor(tenant, listName(botId), options.cursor);
+    options.cursor === undefined ? undefined : decodeCursor(workspaceScope, listName(botId), options.cursor);
   const rows = withProvenance(
     db,
-    tenant,
+    workspaceScope,
     and(eq(memoryItems.botId, botId), before === undefined ? undefined : lt(memoryItems.id, before)),
     limit + 1,
   );
-  return toPage(tenant, listName(botId), rows, limit);
+  return toPage(workspaceScope, listName(botId), rows, limit);
 }
 
 const escapeLike = (term: string) => term.replace(/[\\%_]/g, (c) => `\\${c}`);
@@ -101,23 +104,40 @@ function containsTerm(term: string): SQL {
   )!;
 }
 
-/**
- * Full-text search over one Bot's Memory items. Every term must match. The query is limited to
- * `(workspace_id, bot_id)` inside SQL, the full-text part included, so no other Bot's item is a
- * candidate.
- */
-export function searchMemoryItems(db: Db, tenant: TenantContext, botId: string, query: string): MemoryRow[] {
+const botKey = (workspaceScope: WorkspaceScope, botId: string) => `<${workspaceScope.workspaceId}/${botId}>`;
+
+/** The Bot's key sits inside the MATCH expression so the index itself never yields another Bot's rows. */
+function candidateIds(workspaceScope: WorkspaceScope, botId: string, terms: string[]): SQL {
+  const match = `bot_key : ${ftsPhrase(botKey(workspaceScope, botId))} AND {title description tags body} : (${terms.map(ftsPhrase).join(" AND ")})`;
+  return sql`SELECT item_id FROM memory_fts WHERE memory_fts MATCH ${match}`;
+}
+
+export function fullTextCandidates(
+  db: Db,
+  workspaceScope: WorkspaceScope,
+  botId: string,
+  terms: string[],
+): string[] {
+  return db.all<{ item_id: string }>(candidateIds(workspaceScope, botId, terms)).map((row) => row.item_id);
+}
+
+/** Every term must match. */
+export function searchMemoryItems(
+  db: Db,
+  workspaceScope: WorkspaceScope,
+  botId: string,
+  query: string,
+): MemoryRow[] {
   const terms = [...new Set(query.trim().split(/\s+/).filter(Boolean))].slice(0, SEARCH_TERMS_MAX);
   if (terms.length === 0) return [];
   const long = terms.filter((term) => Array.from(term).length >= TRIGRAM);
   const short = terms.filter((term) => Array.from(term).length < TRIGRAM);
-  const conditions: (SQL | undefined)[] = [inTenant(memoryItems, tenant), eq(memoryItems.botId, botId)];
-  if (long.length > 0) {
-    const match = long.map(ftsPhrase).join(" AND ");
-    conditions.push(
-      sql`${memoryItems.id} IN (SELECT item_id FROM memory_fts WHERE memory_fts MATCH ${match} AND workspace_id = ${tenant.workspaceId} AND bot_id = ${botId})`,
-    );
-  }
+  const conditions: (SQL | undefined)[] = [
+    inWorkspace(memoryItems, workspaceScope),
+    eq(memoryItems.botId, botId),
+  ];
+  if (long.length > 0)
+    conditions.push(sql`${memoryItems.id} IN (${candidateIds(workspaceScope, botId, long)})`);
   conditions.push(...short.map(containsTerm));
   return db
     .select()
@@ -129,41 +149,44 @@ export function searchMemoryItems(db: Db, tenant: TenantContext, botId: string, 
 }
 
 /** Deletes the item in place; its index entry goes with it in the same statement. */
-export function deleteMemoryItem(db: Db, tenant: TenantContext, botId: string, id: string): boolean {
+export function deleteMemoryItem(db: Db, workspaceScope: WorkspaceScope, botId: string, id: string): boolean {
   const deleted = db
     .delete(memoryItems)
-    .where(and(inTenant(memoryItems, tenant), eq(memoryItems.botId, botId), eq(memoryItems.id, id)))
+    .where(
+      and(inWorkspace(memoryItems, workspaceScope), eq(memoryItems.botId, botId), eq(memoryItems.id, id)),
+    )
     .returning({ id: memoryItems.id })
     .all();
   return deleted.length > 0;
 }
 
-/** Deletes every Memory item of the Bot, for deleting the Bot; the index rows go with them. */
-export function deleteBotMemory(db: Db, tenant: TenantContext, botId: string): number {
+export function deleteBotMemory(db: Db, workspaceScope: WorkspaceScope, botId: string): number {
   return db
     .delete(memoryItems)
-    .where(and(inTenant(memoryItems, tenant), eq(memoryItems.botId, botId)))
+    .where(and(inWorkspace(memoryItems, workspaceScope), eq(memoryItems.botId, botId)))
     .returning({ id: memoryItems.id })
     .all().length;
 }
 
-/** Deletes every Memory item of the Workspace, for deleting the Workspace. */
-export function deleteWorkspaceMemory(db: Db, tenant: TenantContext): number {
-  return db.delete(memoryItems).where(inTenant(memoryItems, tenant)).returning({ id: memoryItems.id }).all()
-    .length;
+export function deleteWorkspaceMemory(db: Db, workspaceScope: WorkspaceScope): number {
+  return db
+    .delete(memoryItems)
+    .where(inWorkspace(memoryItems, workspaceScope))
+    .returning({ id: memoryItems.id })
+    .all().length;
 }
 
-/**
- * Empties the Run references into a Conversation that is about to be deleted, so the items stay
- * with their Bot and show a deleted Conversation as their source. The Conversation's deletion
- * calls this in its transaction before it deletes the Runs. Returns how many items changed.
- */
-export function detachMemoryFromConversation(db: Db, tenant: TenantContext, conversationId: string): number {
+/** Runs in the Conversation's deletion transaction before its Runs go, so the items stay with their Bot. */
+export function detachMemoryFromConversation(
+  db: Db,
+  workspaceScope: WorkspaceScope,
+  conversationId: string,
+): number {
   return db.transaction((tx) => {
     const runIds = tx
       .select({ id: runs.id })
       .from(runs)
-      .where(and(inTenant(runs, tenant), eq(runs.conversationId, conversationId)))
+      .where(and(inWorkspace(runs, workspaceScope), eq(runs.conversationId, conversationId)))
       .all()
       .map((run) => run.id);
     if (runIds.length === 0) return 0;
@@ -172,18 +195,18 @@ export function detachMemoryFromConversation(db: Db, tenant: TenantContext, conv
       .from(memoryItems)
       .where(
         and(
-          inTenant(memoryItems, tenant),
+          inWorkspace(memoryItems, workspaceScope),
           or(inArray(memoryItems.createdRunId, runIds), inArray(memoryItems.updatedRunId, runIds)),
         ),
       )
       .all();
     tx.update(memoryItems)
       .set({ createdRunId: null })
-      .where(and(inTenant(memoryItems, tenant), inArray(memoryItems.createdRunId, runIds)))
+      .where(and(inWorkspace(memoryItems, workspaceScope), inArray(memoryItems.createdRunId, runIds)))
       .run();
     tx.update(memoryItems)
       .set({ updatedRunId: null })
-      .where(and(inTenant(memoryItems, tenant), inArray(memoryItems.updatedRunId, runIds)))
+      .where(and(inWorkspace(memoryItems, workspaceScope), inArray(memoryItems.updatedRunId, runIds)))
       .run();
     return touched.length;
   });
@@ -202,7 +225,7 @@ function provenance(
 
 function withProvenance(
   db: Db,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   where: SQL | undefined,
   limit?: number,
 ): MemoryRecord[] {
@@ -218,7 +241,7 @@ function withProvenance(
     .leftJoin(
       createdRun,
       and(
-        inTenant(createdRun, tenant),
+        inWorkspace(createdRun, workspaceScope),
         eq(createdRun.workspaceId, memoryItems.workspaceId),
         eq(createdRun.id, memoryItems.createdRunId),
       ),
@@ -226,12 +249,12 @@ function withProvenance(
     .leftJoin(
       updatedRun,
       and(
-        inTenant(updatedRun, tenant),
+        inWorkspace(updatedRun, workspaceScope),
         eq(updatedRun.workspaceId, memoryItems.workspaceId),
         eq(updatedRun.id, memoryItems.updatedRunId),
       ),
     )
-    .where(and(inTenant(memoryItems, tenant), where))
+    .where(and(inWorkspace(memoryItems, workspaceScope), where))
     .orderBy(desc(memoryItems.id));
   const rows = limit === undefined ? query.all() : query.limit(limit).all();
   return rows.map(({ item, createdConversationId, updatedConversationId }) => ({

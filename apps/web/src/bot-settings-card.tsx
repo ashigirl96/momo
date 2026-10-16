@@ -19,10 +19,7 @@ const statusLabel: Record<CardStatus, string> = { pending: "保存待ち", saved
 
 export type CardSettings = { model: BotModelValue; tools: BotToolValue[] };
 
-/**
- * The "Bot の設定" card. Every label, the status and the Workspace row are momo's own; only the
- * name and instructions fields come from the Bot, and they are drawn as plain text.
- */
+/** Only the name and instructions come from the Bot, and they are drawn as plain text. */
 export function BotSettingsCard(props: {
   workspace: WorkspaceItem;
   name: string;

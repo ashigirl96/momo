@@ -6,9 +6,9 @@ import {
   createWorkspace,
   InvalidCursor,
   migrations as workspaceMigrations,
-  resolveTenant,
+  resolveWorkspaceScope,
   type Conversation,
-  type TenantContext,
+  type WorkspaceScope,
 } from "@momo/workspace";
 import { workspaceOwnedTableProblems } from "@momo/workspace/testing";
 import { drizzle } from "drizzle-orm/bun-sqlite";
@@ -24,18 +24,18 @@ const settings = { instructions: "手伝う", model: "sonnet", tools: [] } as co
 
 let testDb: TestDatabase;
 const db = () => drizzle({ client: testDb.sqlite });
-let a: TenantContext;
-let b: TenantContext;
+let a: WorkspaceScope;
+let b: WorkspaceScope;
 let convA: Conversation;
 let convB: Conversation;
 
-function workspaceWithConversation(name: string): [TenantContext, Conversation] {
-  const tenant = resolveTenant(db(), createWorkspace(db(), { name, now }).id, {
+function workspaceWithConversation(name: string): [WorkspaceScope, Conversation] {
+  const workspaceScope = resolveWorkspaceScope(db(), createWorkspace(db(), { name, now }).id, {
     kind: "owner",
     loginId: `login_${name}`,
   })!;
-  const bot = createBot(db(), tenant, { ...settings, name: `${name} の Bot`, tools: [], now });
-  return [tenant, createConversation(db(), tenant, { primaryBotId: bot.id, now })!];
+  const bot = createBot(db(), workspaceScope, { ...settings, name: `${name} の Bot`, tools: [], now });
+  return [workspaceScope, createConversation(db(), workspaceScope, { primaryBotId: bot.id, now })!];
 }
 
 beforeEach(() => {
@@ -48,11 +48,11 @@ afterEach(() => {
   testDb.close();
 });
 
-const post = (text: string, tenant = a, conversation = convA) =>
-  postOwnerMessage(db(), tenant, { conversationId: conversation.id, text, now });
+const post = (text: string, workspaceScope = a, conversation = convA) =>
+  postOwnerMessage(db(), workspaceScope, { conversationId: conversation.id, text, now });
 
-const kinds = (tenant: TenantContext, conversation: Conversation, after = 0) =>
-  eventsAfter(db(), tenant, conversation.id, after).map((e) => e.event.kind);
+const kinds = (workspaceScope: WorkspaceScope, conversation: Conversation, after = 0) =>
+  eventsAfter(db(), workspaceScope, conversation.id, after).map((e) => e.event.kind);
 
 describe("posting an owner message", () => {
   test("queues a Run of the primary Bot in its Session, carrying the trusted ids and the owner", () => {

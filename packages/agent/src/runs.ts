@@ -1,6 +1,6 @@
 import type { RunInputMessage, RunItem, RunOutcome } from "@momo/contracts";
 import type { Db } from "@momo/migrator";
-import { inTenant, type Actor, type TenantContext } from "@momo/workspace";
+import { inWorkspace, type Actor, type WorkspaceScope } from "@momo/workspace";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import { appendEvent } from "./events.ts";
 import { conversationMessages, insertMessage, toMessageItem } from "./messages.ts";
@@ -21,37 +21,37 @@ export function toRunItem(run: Run): RunItem {
   };
 }
 
-export function getRun(db: Db, tenant: TenantContext, id: string): Run | undefined {
+export function getRun(db: Db, workspaceScope: WorkspaceScope, id: string): Run | undefined {
   return db
     .select()
     .from(runs)
-    .where(and(inTenant(runs, tenant), eq(runs.id, id)))
+    .where(and(inWorkspace(runs, workspaceScope), eq(runs.id, id)))
     .get();
 }
 
-/** Queues a Run for an owner message; the ids come from rows the caller already found in the tenant. */
+/** The ids come from rows the caller already found in the Workspace. */
 export function queueRun(
   db: Db,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   input: { conversationId: string; botId: string; sessionId: string; inputMessageId: string; now: Date },
 ): Run {
   const run = db
     .insert(runs)
     .values({
       id: `run_${Bun.randomUUIDv7()}`,
-      workspaceId: tenant.workspaceId,
+      workspaceId: workspaceScope.workspaceId,
       conversationId: input.conversationId,
       botId: input.botId,
       sessionId: input.sessionId,
-      actorKind: tenant.actor.kind,
-      actorLoginId: tenant.actor.loginId,
+      actorKind: workspaceScope.actor.kind,
+      actorLoginId: workspaceScope.actor.loginId,
       inputMessageId: input.inputMessageId,
       status: "queued",
       createdAt: input.now,
     })
     .returning()
     .get();
-  appendEvent(db, tenant, {
+  appendEvent(db, workspaceScope, {
     conversationId: run.conversationId,
     runId: run.id,
     event: { kind: "run_queued", run: toRunItem(run) },
@@ -60,18 +60,15 @@ export function queueRun(
   return run;
 }
 
-/**
- * Starts the Session's oldest queued Run, unless one is already running: a Session runs its Runs
- * one at a time so their effects are attributed to the right Run (ADR-0018).
- */
+/** A Session runs its Runs one at a time so their effects are attributed to the right Run (ADR-0018). */
 export function startNextRun(
   db: Db,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   sessionId: string,
   now: Date,
 ): StartedRun | undefined {
   return db.transaction((tx) => {
-    const inSession = and(inTenant(runs, tenant), eq(runs.sessionId, sessionId));
+    const inSession = and(inWorkspace(runs, workspaceScope), eq(runs.sessionId, sessionId));
     if (
       tx
         .select({ id: runs.id })
@@ -90,16 +87,16 @@ export function startNextRun(
     const run = tx
       .update(runs)
       .set({ status: "running", startedAt: now })
-      .where(and(inTenant(runs, tenant), eq(runs.id, next.id)))
+      .where(and(inWorkspace(runs, workspaceScope), eq(runs.id, next.id)))
       .returning()
       .get();
-    appendEvent(tx, tenant, {
+    appendEvent(tx, workspaceScope, {
       conversationId: run.conversationId,
       runId: run.id,
       event: { kind: "run_started", runId: run.id },
       now,
     });
-    const inSessionMessages = conversationMessages(tx, tenant, run.conversationId).filter(
+    const inSessionMessages = conversationMessages(tx, workspaceScope, run.conversationId).filter(
       (m) => m.sessionId === run.sessionId,
     );
     const inputAt = inSessionMessages.findIndex((m) => m.id === run.inputMessageId);
@@ -110,26 +107,25 @@ export function startNextRun(
   });
 }
 
-function runningRun(db: Db, tenant: TenantContext, runId: string): Run | undefined {
+function runningRun(db: Db, workspaceScope: WorkspaceScope, runId: string): Run | undefined {
   return db
     .select()
     .from(runs)
-    .where(and(inTenant(runs, tenant), eq(runs.id, runId), eq(runs.status, "running")))
+    .where(and(inWorkspace(runs, workspaceScope), eq(runs.id, runId), eq(runs.status, "running")))
     .get();
 }
 
-/** Records streamed text of a running Run; false when the Run is not running in the tenant. */
 export function appendRunDelta(
   db: Db,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   runId: string,
   text: string,
   now: Date,
 ): boolean {
   return db.transaction((tx) => {
-    const run = runningRun(tx, tenant, runId);
+    const run = runningRun(tx, workspaceScope, runId);
     if (!run) return false;
-    appendEvent(tx, tenant, {
+    appendEvent(tx, workspaceScope, {
       conversationId: run.conversationId,
       runId: run.id,
       event: { kind: "run_delta", runId: run.id, text },
@@ -139,25 +135,28 @@ export function appendRunDelta(
   });
 }
 
-function streamedText(db: Db, tenant: TenantContext, runId: string): string {
+function streamedText(db: Db, workspaceScope: WorkspaceScope, runId: string): string {
   return db
     .select({ event: conversationEvents.event })
     .from(conversationEvents)
-    .where(and(inTenant(conversationEvents, tenant), eq(conversationEvents.runId, runId)))
+    .where(and(inWorkspace(conversationEvents, workspaceScope), eq(conversationEvents.runId, runId)))
     .orderBy(asc(conversationEvents.id))
     .all()
     .map(({ event }) => (event.kind === "run_delta" ? event.text : ""))
     .join("");
 }
 
-/**
- * Ends an unfinished Run of the tenant. The text a completed or cancelled Run streamed becomes the
- * Bot's public message in the same transaction, so the history never shows the Run without it.
- */
-function endRun(db: Db, tenant: TenantContext, unfinished: Run, outcome: RunOutcome, now: Date): Run {
-  const text = streamedText(db, tenant, unfinished.id);
+/** The streamed text becomes the Bot's message in the same transaction, so the history never shows the Run without it. */
+function endRun(
+  db: Db,
+  workspaceScope: WorkspaceScope,
+  unfinished: Run,
+  outcome: RunOutcome,
+  now: Date,
+): Run {
+  const text = streamedText(db, workspaceScope, unfinished.id);
   if (outcome !== "failed" && text !== "") {
-    const message = insertMessage(db, tenant, {
+    const message = insertMessage(db, workspaceScope, {
       conversationId: unfinished.conversationId,
       author: {
         kind: "bot",
@@ -169,7 +168,7 @@ function endRun(db: Db, tenant: TenantContext, unfinished: Run, outcome: RunOutc
       text,
       now,
     });
-    appendEvent(db, tenant, {
+    appendEvent(db, workspaceScope, {
       conversationId: unfinished.conversationId,
       runId: unfinished.id,
       event: { kind: "message_created", message: toMessageItem(message) },
@@ -179,10 +178,10 @@ function endRun(db: Db, tenant: TenantContext, unfinished: Run, outcome: RunOutc
   const run = db
     .update(runs)
     .set({ status: outcome, finishedAt: now })
-    .where(and(inTenant(runs, tenant), eq(runs.id, unfinished.id)))
+    .where(and(inWorkspace(runs, workspaceScope), eq(runs.id, unfinished.id)))
     .returning()
     .get();
-  appendEvent(db, tenant, {
+  appendEvent(db, workspaceScope, {
     conversationId: run.conversationId,
     runId: run.id,
     event: { kind: "run_finished", runId: run.id, status: run.status },
@@ -191,51 +190,52 @@ function endRun(db: Db, tenant: TenantContext, unfinished: Run, outcome: RunOutc
   return run;
 }
 
-/** Finishes a running Run as the runner reports it; undefined when it is not running in the tenant. */
 export function finishRun(
   db: Db,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   runId: string,
   input: { outcome: RunOutcome; now: Date },
 ): Run | undefined {
   return db.transaction((tx) => {
-    const running = runningRun(tx, tenant, runId);
-    return running && endRun(tx, tenant, running, input.outcome, input.now);
+    const running = runningRun(tx, workspaceScope, runId);
+    return running && endRun(tx, workspaceScope, running, input.outcome, input.now);
   });
 }
 
-/**
- * The owner stops a queued or running Run. app.db records the stop at once, so the history and a
- * reload show it whether or not the runner answers the cancel. A finished Run is returned as it is.
- */
-export function cancelRun(db: Db, tenant: TenantContext, runId: string, now: Date): Run | undefined {
+/** app.db records the stop at once, so a reload shows it whether or not the runner answers the cancel. */
+export function cancelRun(db: Db, workspaceScope: WorkspaceScope, runId: string, now: Date): Run | undefined {
   return db.transaction((tx) => {
-    const run = getRun(tx, tenant, runId);
+    const run = getRun(tx, workspaceScope, runId);
     if (!run || (run.status !== "queued" && run.status !== "running")) return run;
-    return endRun(tx, tenant, run, "cancelled", now);
+    return endRun(tx, workspaceScope, run, "cancelled", now);
   });
 }
 
-/** Cancels every unfinished Run of a Session; returns the ids of those that were running. */
-export function cancelSessionRuns(db: Db, tenant: TenantContext, sessionId: string, now: Date): string[] {
+export function cancelSessionRuns(
+  db: Db,
+  workspaceScope: WorkspaceScope,
+  sessionId: string,
+  now: Date,
+): string[] {
   const unfinished = db
     .select()
     .from(runs)
     .where(
-      and(inTenant(runs, tenant), eq(runs.sessionId, sessionId), inArray(runs.status, ["queued", "running"])),
+      and(
+        inWorkspace(runs, workspaceScope),
+        eq(runs.sessionId, sessionId),
+        inArray(runs.status, ["queued", "running"]),
+      ),
     )
     .orderBy(asc(runs.id))
     .all();
-  for (const run of unfinished) endRun(db, tenant, run, "cancelled", now);
+  for (const run of unfinished) endRun(db, workspaceScope, run, "cancelled", now);
   return unfinished.filter((run) => run.status === "running").map((run) => run.id);
 }
 
 export type QueuedSession = { workspaceId: string; sessionId: string; actor: Actor };
 
-/**
- * Startup recovery across all Workspaces, before any request is served: a Run left running by a
- * stopped backend has lost its runner, so it fails. Returns the Sessions that still have queued Runs.
- */
+/** A Run left running by a stopped backend has lost its runner, so it fails. */
 export function failInterruptedRuns(db: Db, now: Date): QueuedSession[] {
   return db.transaction((tx) => {
     const interrupted = tx.select().from(runs).where(eq(runs.status, "running")).all();

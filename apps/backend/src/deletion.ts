@@ -13,7 +13,7 @@ import {
   deleteConversations,
   deleteWorkspace,
   getBot,
-  type TenantContext,
+  type WorkspaceScope,
 } from "@momo/workspace";
 
 export type Deletion = {
@@ -22,59 +22,53 @@ export type Deletion = {
   runningRunIds: string[];
 };
 
-export function previewWorkspaceDeletion(db: Db, tenant: TenantContext): DeletionPreview {
-  return { conversations: conversationIds(db, tenant).length };
+export function previewWorkspaceDeletion(db: Db, workspaceScope: WorkspaceScope): DeletionPreview {
+  return { conversations: conversationIds(db, workspaceScope).length };
 }
 
-/** undefined when the Bot is not the tenant's. */
 export function previewBotDeletion(
   db: Db,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   botId: string,
 ): DeletionPreview | undefined {
-  if (!getBot(db, tenant, botId)) return undefined;
-  return { conversations: conversationIds(db, tenant, { primaryBotId: botId }).length };
+  if (!getBot(db, workspaceScope, botId)) return undefined;
+  return { conversations: conversationIds(db, workspaceScope, { primaryBotId: botId }).length };
 }
 
-/**
- * Deletes the Workspace from every domain in one transaction, in reverse reference order:
- * memory, then agent, then workspace. Attachment files are removed only after the commit, so a
- * failed transaction leaves both rows and files in place.
- */
-export function deleteWorkspaceEverywhere(db: Db, files: AttachmentFiles, tenant: TenantContext): Deletion {
+/** Attachment files go only after the commit, so a failed transaction leaves both rows and files in place. */
+export function deleteWorkspaceEverywhere(
+  db: Db,
+  files: AttachmentFiles,
+  workspaceScope: WorkspaceScope,
+): Deletion {
   const deletion = db.transaction((tx) => {
-    const ids = conversationIds(tx, tenant);
-    deleteWorkspaceMemory(tx, tenant);
-    const { runningRunIds } = deleteConversationRecords(tx, tenant, ids);
-    deleteWorkspace(tx, tenant);
+    const ids = conversationIds(tx, workspaceScope);
+    deleteWorkspaceMemory(tx, workspaceScope);
+    const { runningRunIds } = deleteConversationRecords(tx, workspaceScope, ids);
+    deleteWorkspace(tx, workspaceScope);
     return { conversationIds: ids, runningRunIds };
   });
-  removeWorkspaceAttachments(files, tenant);
+  removeWorkspaceAttachments(files, workspaceScope);
   return deletion;
 }
 
-/**
- * Deletes the Bot, its Memory items and the Conversations it is the primary Bot of, with their
- * Sessions, Runs, messages and Attachments, in one transaction. undefined when the Bot is not the
- * tenant's; nothing is deleted then.
- */
 export function deleteBotEverywhere(
   db: Db,
   files: AttachmentFiles,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   botId: string,
 ): Deletion | undefined {
   const deletion = db.transaction((tx) => {
-    if (!getBot(tx, tenant, botId)) return undefined;
-    const ids = conversationIds(tx, tenant, { primaryBotId: botId });
-    deleteBotMemory(tx, tenant, botId);
-    for (const id of ids) detachMemoryFromConversation(tx, tenant, id);
-    const records = deleteConversationRecords(tx, tenant, ids);
-    deleteConversations(tx, tenant, ids);
-    deleteBot(tx, tenant, botId);
+    if (!getBot(tx, workspaceScope, botId)) return undefined;
+    const ids = conversationIds(tx, workspaceScope, { primaryBotId: botId });
+    deleteBotMemory(tx, workspaceScope, botId);
+    for (const id of ids) detachMemoryFromConversation(tx, workspaceScope, id);
+    const records = deleteConversationRecords(tx, workspaceScope, ids);
+    deleteConversations(tx, workspaceScope, ids);
+    deleteBot(tx, workspaceScope, botId);
     return { conversationIds: ids, ...records };
   });
   if (!deletion) return undefined;
-  removeAttachmentFiles(files, tenant, deletion.attachmentIds);
+  removeAttachmentFiles(files, workspaceScope, deletion.attachmentIds);
   return { conversationIds: deletion.conversationIds, runningRunIds: deletion.runningRunIds };
 }

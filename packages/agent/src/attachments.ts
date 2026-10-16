@@ -1,6 +1,6 @@
 import type { AttachmentItem } from "@momo/contracts";
 import type { Db } from "@momo/migrator";
-import { inTenant, type TenantContext } from "@momo/workspace";
+import { inWorkspace, type WorkspaceScope } from "@momo/workspace";
 import { and, asc, eq, inArray } from "drizzle-orm";
 import {
   chmodSync,
@@ -19,7 +19,7 @@ import {
 import { join } from "node:path";
 import { attachments, messages } from "./schema.ts";
 
-export type AttachmentUpload = { name: string; contentType: string; bytes: Uint8Array };
+export type NewAttachment = { name: string; contentType: string; bytes: Uint8Array };
 
 export type Attachment = {
   id: string;
@@ -68,22 +68,18 @@ function ownerOnlyDir(path: string, create: boolean): boolean {
   return true;
 }
 
-/**
- * Attachment bytes under `<data dir>/attachments/<workspace id>/<attachment id>`. The path is
- * built from trusted ids only, files are created exclusively without following symlinks, and
- * reads never follow one either.
- */
+/** Files are created exclusively without following symlinks, and reads never follow one either. */
 export class AttachmentFiles {
   constructor(readonly root: string) {}
 
-  #dir(tenant: TenantContext, create: boolean): string | undefined {
-    const dir = join(this.root, segment(tenant.workspaceId));
+  #dir(workspaceScope: WorkspaceScope, create: boolean): string | undefined {
+    const dir = join(this.root, segment(workspaceScope.workspaceId));
     if (!ownerOnlyDir(this.root, create) || !ownerOnlyDir(dir, create)) return undefined;
     return dir;
   }
 
-  write(tenant: TenantContext, id: string, bytes: Uint8Array): void {
-    const path = join(this.#dir(tenant, true)!, segment(id));
+  write(workspaceScope: WorkspaceScope, id: string, bytes: Uint8Array): void {
+    const path = join(this.#dir(workspaceScope, true)!, segment(id));
     const fd = openSync(
       path,
       constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
@@ -97,8 +93,8 @@ export class AttachmentFiles {
     }
   }
 
-  read(tenant: TenantContext, id: string): Uint8Array<ArrayBuffer> | undefined {
-    const dir = this.#dir(tenant, false);
+  read(workspaceScope: WorkspaceScope, id: string): Uint8Array<ArrayBuffer> | undefined {
+    const dir = this.#dir(workspaceScope, false);
     if (!dir) return undefined;
     let fd: number;
     try {
@@ -115,12 +111,12 @@ export class AttachmentFiles {
     }
   }
 
-  remove(tenant: TenantContext, id: string): void {
-    rmSync(join(this.root, segment(tenant.workspaceId), segment(id)), { force: true });
+  remove(workspaceScope: WorkspaceScope, id: string): void {
+    rmSync(join(this.root, segment(workspaceScope.workspaceId), segment(id)), { force: true });
   }
 
-  removeWorkspace(tenant: TenantContext): void {
-    rmSync(join(this.root, segment(tenant.workspaceId)), { recursive: true, force: true });
+  removeWorkspace(workspaceScope: WorkspaceScope): void {
+    rmSync(join(this.root, segment(workspaceScope.workspaceId)), { recursive: true, force: true });
   }
 
   /** Removes every id-named entry that `keep` does not list; other names are left alone. */
@@ -147,8 +143,8 @@ export class AttachmentFiles {
 }
 
 /** The display name: the last path segment without control characters; never used as a path. */
-export function attachmentName(uploaded: string): string {
-  const last = uploaded.split(/[/\\]/).at(-1) ?? "";
+export function attachmentName(given: string): string {
+  const last = given.split(/[/\\]/).at(-1) ?? "";
   const clean = [...last]
     .filter((c) => c >= " " && c !== "\u007f")
     .join("")
@@ -182,34 +178,31 @@ export function toAttachmentItem(attachment: Attachment): AttachmentItem {
   };
 }
 
-/**
- * Writes each upload's file, then its row; the caller runs this inside the message's transaction
- * and removes `written` files if that transaction fails.
- */
+/** The caller runs this inside the message's transaction and removes `written` files if it fails. */
 export function insertAttachments(
   db: Db,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   input: {
     messageId: string;
     files: AttachmentFiles;
-    uploads: AttachmentUpload[];
+    newAttachments: NewAttachment[];
     now: Date;
     written: string[];
   },
 ): Attachment[] {
-  return input.uploads.map((upload) => {
+  return input.newAttachments.map((added) => {
     const id = `attachment_${Bun.randomUUIDv7()}`;
     input.written.push(id);
-    input.files.write(tenant, id, upload.bytes);
+    input.files.write(workspaceScope, id, added.bytes);
     const row = db
       .insert(attachments)
       .values({
         id,
-        workspaceId: tenant.workspaceId,
+        workspaceId: workspaceScope.workspaceId,
         messageId: input.messageId,
-        name: attachmentName(upload.name),
-        contentType: attachmentContentType(upload.contentType),
-        size: upload.bytes.length,
+        name: attachmentName(added.name),
+        contentType: attachmentContentType(added.contentType),
+        size: added.bytes.length,
         createdAt: input.now,
       })
       .returning()
@@ -218,10 +211,9 @@ export function insertAttachments(
   });
 }
 
-/** The tenant's Attachments of the given messages, keyed by message id, oldest first. */
 export function attachmentsOf(
   db: Db,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   messageIds: string[],
 ): Map<string, Attachment[]> {
   const byMessage = new Map<string, Attachment[]>();
@@ -229,7 +221,7 @@ export function attachmentsOf(
   const rows = db
     .select()
     .from(attachments)
-    .where(and(inTenant(attachments, tenant), inArray(attachments.messageId, messageIds)))
+    .where(and(inWorkspace(attachments, workspaceScope), inArray(attachments.messageId, messageIds)))
     .orderBy(asc(attachments.id))
     .all();
   for (const row of rows) {
@@ -240,10 +232,9 @@ export function attachmentsOf(
   return byMessage;
 }
 
-/** An Attachment of a message in this Conversation of this Workspace, or undefined. */
 export function getAttachment(
   db: Db,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   input: { conversationId: string; attachmentId: string },
 ): Attachment | undefined {
   const row = db
@@ -252,14 +243,14 @@ export function getAttachment(
     .innerJoin(
       messages,
       and(
-        inTenant(messages, tenant),
+        inWorkspace(messages, workspaceScope),
         eq(messages.workspaceId, attachments.workspaceId),
         eq(messages.id, attachments.messageId),
       ),
     )
     .where(
       and(
-        inTenant(attachments, tenant),
+        inWorkspace(attachments, workspaceScope),
         eq(attachments.id, input.attachmentId),
         eq(messages.conversationId, input.conversationId),
       ),
@@ -268,30 +259,27 @@ export function getAttachment(
   return row && toAttachment(row.attachment);
 }
 
-/** The bytes of an Attachment found with `getAttachment`; undefined if the file is gone. */
 export function readAttachment(
   files: AttachmentFiles,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   attachment: Attachment,
 ): Uint8Array<ArrayBuffer> | undefined {
-  return files.read(tenant, attachment.id);
+  return files.read(workspaceScope, attachment.id);
 }
 
-/** Removes the files of Attachments whose rows a committed deletion took away. */
-export function removeAttachmentFiles(files: AttachmentFiles, tenant: TenantContext, ids: string[]): void {
-  for (const id of ids) files.remove(tenant, id);
+export function removeAttachmentFiles(
+  files: AttachmentFiles,
+  workspaceScope: WorkspaceScope,
+  ids: string[],
+): void {
+  for (const id of ids) files.remove(workspaceScope, id);
 }
 
-/** Removes every Attachment file of the Workspace, for deleting the Workspace. */
-export function removeWorkspaceAttachments(files: AttachmentFiles, tenant: TenantContext): void {
-  files.removeWorkspace(tenant);
+export function removeWorkspaceAttachments(files: AttachmentFiles, workspaceScope: WorkspaceScope): void {
+  files.removeWorkspace(workspaceScope);
 }
 
-/**
- * Startup only, across Workspaces: removes Attachment files that have no row, which a stop between
- * a delete's commit and its file removal leaves behind. Returns how many files it removed, not
- * counting whole Workspace dirs.
- */
+/** Removes Attachment files without a row, which a stop between a delete's commit and its file removal leaves behind. */
 export function sweepAttachmentFiles(db: Db, files: AttachmentFiles): number {
   const keep = new Map<string, Set<string>>();
   for (const row of db

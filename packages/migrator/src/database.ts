@@ -6,9 +6,6 @@ import { chmodSync, closeSync, openSync } from "node:fs";
 // oxlint-disable-next-line typescript/no-explicit-any
 export type Db = SQLiteAsyncDatabase<"sync", any, any>;
 
-/**
- * Opens an app.db connection with the pragmas every connection must carry.
- */
 export function openDatabase(path: string): Database {
   // SQLite creates -wal and -shm with the main file's mode, and the umask covers the first create.
   const previous = process.umask(0o077);

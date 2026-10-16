@@ -14,15 +14,16 @@ import {
   createWorkspace,
   InvalidCursor,
   migrations as workspaceMigrations,
-  resolveTenant,
+  resolveWorkspaceScope,
   type Bot,
-  type TenantContext,
+  type WorkspaceScope,
 } from "@momo/workspace";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { existsSync, readFileSync } from "node:fs";
 import {
   deleteMemoryItem,
   detachMemoryFromConversation,
+  fullTextCandidates,
   getMemoryItem,
   listMemoryItems,
   searchMemoryItems,
@@ -33,39 +34,42 @@ import { migrations } from "./index.ts";
 const now = new Date("2026-10-01T00:00:00Z");
 const settings = { instructions: "手伝う", model: "sonnet" as const, tools: ["memory" as const] };
 
-const rawInsert = (tenant: TenantContext, botId: string, runId: string | null) =>
+const rawInsert = (workspaceScope: WorkspaceScope, botId: string, runId: string | null) =>
   testDb.sqlite.run(
     "INSERT INTO memory_items (id, workspace_id, bot_id, type, title, description, tags, body, created_by, created_run_id, updated_by, created_at, updated_at) VALUES (?, ?, ?, 'note', 't', '', '[]', 'b', 'bot', ?, 'bot', 0, 0)",
-    [`memory_${Bun.randomUUIDv7()}`, tenant.workspaceId, botId, runId],
+    [`memory_${Bun.randomUUIDv7()}`, workspaceScope.workspaceId, botId, runId],
   );
 
 let testDb: TestDatabase;
 const db = () => drizzle({ client: testDb.sqlite });
 
-type Fixture = { tenant: TenantContext; bot: Bot; other: Bot; run: Run; conversationId: string };
+type Fixture = { workspaceScope: WorkspaceScope; bot: Bot; other: Bot; run: Run; conversationId: string };
 let a: Fixture;
 let b: Fixture;
 
-function tenantNamed(name: string): TenantContext {
-  return resolveTenant(db(), createWorkspace(db(), { name, now }).id, {
+function workspaceScopeNamed(name: string): WorkspaceScope {
+  return resolveWorkspaceScope(db(), createWorkspace(db(), { name, now }).id, {
     kind: "owner",
     loginId: `login_${name}`,
   })!;
 }
 
-/** Starts a Run of `bot` in a new Conversation, as a memory tool request would arrive inside it. */
-function runningRun(tenant: TenantContext, bot: Bot): Run {
-  const conversation = createConversation(db(), tenant, { primaryBotId: bot.id, now })!;
-  const { run } = postOwnerMessage(db(), tenant, { conversationId: conversation.id, text: "覚えて", now })!;
-  return startNextRun(db(), tenant, run.sessionId, now)!.run;
+function runningRun(workspaceScope: WorkspaceScope, bot: Bot): Run {
+  const conversation = createConversation(db(), workspaceScope, { primaryBotId: bot.id, now })!;
+  const { run } = postOwnerMessage(db(), workspaceScope, {
+    conversationId: conversation.id,
+    text: "覚えて",
+    now,
+  })!;
+  return startNextRun(db(), workspaceScope, run.sessionId, now)!.run;
 }
 
 function fixture(name: string): Fixture {
-  const tenant = tenantNamed(name);
-  const bot = createBot(db(), tenant, { ...settings, name: `${name} の Bot`, now });
-  const other = createBot(db(), tenant, { ...settings, name: `${name} の別の Bot`, now });
-  const run = runningRun(tenant, bot);
-  return { tenant, bot, other, run, conversationId: run.conversationId };
+  const workspaceScope = workspaceScopeNamed(name);
+  const bot = createBot(db(), workspaceScope, { ...settings, name: `${name} の Bot`, now });
+  const other = createBot(db(), workspaceScope, { ...settings, name: `${name} の別の Bot`, now });
+  const run = runningRun(workspaceScope, bot);
+  return { workspaceScope, bot, other, run, conversationId: run.conversationId };
 }
 
 const draft = (body: string, extra: Partial<MemoryItemDraft> = {}): MemoryItemDraft => ({
@@ -78,10 +82,10 @@ const draft = (body: string, extra: Partial<MemoryItemDraft> = {}): MemoryItemDr
 });
 
 const write = (f: Fixture, body: string, extra?: Partial<MemoryItemDraft>, run = f.run) =>
-  writeMemoryItem(db(), f.tenant, { runId: run.id, item: draft(body, extra), now });
+  writeMemoryItem(db(), f.workspaceScope, { runId: run.id, item: draft(body, extra), now });
 
 const titles = (f: Fixture, query: string, bot = f.bot) =>
-  searchMemoryItems(db(), f.tenant, bot.id, query).map((item) => item.body);
+  searchMemoryItems(db(), f.workspaceScope, bot.id, query).map((item) => item.body);
 
 beforeEach(() => {
   testDb = migratedTestDatabase([workspaceMigrations, agentMigrations, migrations]);
@@ -104,7 +108,7 @@ describe("writing a Memory item", () => {
     })!;
 
     expect(item).toMatchObject({
-      workspaceId: a.tenant.workspaceId,
+      workspaceId: a.workspaceScope.workspaceId,
       botId: a.bot.id,
       type: "preference",
       title: "朝の飲み物",
@@ -118,31 +122,31 @@ describe("writing a Memory item", () => {
       updatedRunId: a.run.id,
     });
     expect(item.id).toMatch(/^memory_[0-9a-f-]{36}$/);
-    expect(getMemoryItem(db(), a.tenant, a.bot.id, item.id)?.created).toEqual({
+    expect(getMemoryItem(db(), a.workspaceScope, a.bot.id, item.id)?.created).toEqual({
       writer: "bot",
       source: { kind: "conversation", conversationId: a.conversationId, runId: a.run.id },
     });
   });
 
-  test("is refused, writing nothing, for a Run that is not running in the tenant", () => {
+  test("is refused, writing nothing, for a Run that is not running in the Workspace", () => {
     expect(
-      writeMemoryItem(db(), b.tenant, { runId: a.run.id, item: draft("越境の記憶"), now }),
+      writeMemoryItem(db(), b.workspaceScope, { runId: a.run.id, item: draft("越境の記憶"), now }),
     ).toBeUndefined();
     expect(
-      writeMemoryItem(db(), a.tenant, { runId: "run_missing", item: draft("無い Run"), now }),
+      writeMemoryItem(db(), a.workspaceScope, { runId: "run_missing", item: draft("無い Run"), now }),
     ).toBeUndefined();
 
-    const queued = postOwnerMessage(db(), a.tenant, {
+    const queued = postOwnerMessage(db(), a.workspaceScope, {
       conversationId: a.conversationId,
       text: "次",
       now,
     })!.run;
     expect(write(a, "待っている Run の記憶", {}, queued)).toBeUndefined();
-    cancelRun(db(), a.tenant, a.run.id, now);
+    cancelRun(db(), a.workspaceScope, a.run.id, now);
     expect(write(a, "止めた Run の記憶", {}, a.run)).toBeUndefined();
 
-    expect(listMemoryItems(db(), a.tenant, a.bot.id, {}).items).toEqual([]);
-    expect(listMemoryItems(db(), b.tenant, b.bot.id, {}).items).toEqual([]);
+    expect(listMemoryItems(db(), a.workspaceScope, a.bot.id, {}).items).toEqual([]);
+    expect(listMemoryItems(db(), b.workspaceScope, b.bot.id, {}).items).toEqual([]);
     expect(titles(a, "記憶")).toEqual([]);
   });
 
@@ -153,14 +157,14 @@ describe("writing a Memory item", () => {
     );
 
     expect(() => write(a, "書けない記憶")).toThrow();
-    expect(listMemoryItems(db(), a.tenant, a.bot.id, {}).items).toEqual([]);
+    expect(listMemoryItems(db(), a.workspaceScope, a.bot.id, {}).items).toEqual([]);
     expect(testDb.sqlite.query("SELECT count(*) AS n FROM memory_fts").get()).toEqual({ n: 0 });
   });
 
   test("cannot point at another Workspace's Bot or Run, even in raw SQL", () => {
-    expect(() => rawInsert(a.tenant, b.bot.id, null)).toThrow("FOREIGN KEY constraint failed");
-    expect(() => rawInsert(a.tenant, a.bot.id, b.run.id)).toThrow("FOREIGN KEY constraint failed");
-    expect(() => rawInsert(a.tenant, a.bot.id, a.run.id)).not.toThrow();
+    expect(() => rawInsert(a.workspaceScope, b.bot.id, null)).toThrow("FOREIGN KEY constraint failed");
+    expect(() => rawInsert(a.workspaceScope, a.bot.id, b.run.id)).toThrow("FOREIGN KEY constraint failed");
+    expect(() => rawInsert(a.workspaceScope, a.bot.id, a.run.id)).not.toThrow();
   });
 
   test("cannot be moved to another Workspace", () => {
@@ -168,7 +172,7 @@ describe("writing a Memory item", () => {
 
     expect(() =>
       testDb.sqlite.run("UPDATE memory_items SET workspace_id = ? WHERE id = ?", [
-        b.tenant.workspaceId,
+        b.workspaceScope.workspaceId,
         item.id,
       ]),
     ).toThrow("workspace_id is immutable");
@@ -178,7 +182,7 @@ describe("writing a Memory item", () => {
 describe("searching Memory items", () => {
   test("finds a Bot's item from another of its Conversations by a Japanese substring", () => {
     write(a, "所有者は毎朝コーヒーを二杯飲む");
-    const later = runningRun(a.tenant, a.bot);
+    const later = runningRun(a.workspaceScope, a.bot);
 
     expect(later.conversationId).not.toBe(a.conversationId);
     expect(titles(a, "コーヒー")).toEqual(["所有者は毎朝コーヒーを二杯飲む"]);
@@ -217,8 +221,8 @@ describe("searching Memory items", () => {
   test("never returns another Bot's or another Workspace's item, even for the same words", () => {
     write(a, "共通の合言葉はさくら");
     write(b, "共通の合言葉はさくら B");
-    writeMemoryItem(db(), a.tenant, {
-      runId: runningRun(a.tenant, a.other).id,
+    writeMemoryItem(db(), a.workspaceScope, {
+      runId: runningRun(a.workspaceScope, a.other).id,
       item: draft("共通の合言葉はさくら 別の Bot"),
       now,
     });
@@ -227,8 +231,22 @@ describe("searching Memory items", () => {
     expect(titles(a, "合")).toEqual(["共通の合言葉はさくら"]);
     expect(titles(a, "合言葉", a.other)).toEqual(["共通の合言葉はさくら 別の Bot"]);
     expect(titles(b, "合言葉")).toEqual(["共通の合言葉はさくら B"]);
-    expect(searchMemoryItems(db(), a.tenant, b.bot.id, "合言葉")).toEqual([]);
-    expect(searchMemoryItems(db(), b.tenant, a.bot.id, "合言葉")).toEqual([]);
+    expect(searchMemoryItems(db(), a.workspaceScope, b.bot.id, "合言葉")).toEqual([]);
+    expect(searchMemoryItems(db(), b.workspaceScope, a.bot.id, "合言葉")).toEqual([]);
+  });
+
+  test("the full-text index yields only the Bot's own items as candidates", () => {
+    const own = write(a, "共通の合言葉はさくら")!;
+    write(b, "共通の合言葉はさくら B");
+    writeMemoryItem(db(), a.workspaceScope, {
+      runId: runningRun(a.workspaceScope, a.other).id,
+      item: draft("共通の合言葉はさくら 別の Bot"),
+      now,
+    });
+
+    expect(fullTextCandidates(db(), a.workspaceScope, a.bot.id, ["合言葉"])).toEqual([own.id]);
+    expect(fullTextCandidates(db(), a.workspaceScope, a.bot.id, [a.other.id])).toEqual([]);
+    expect(fullTextCandidates(db(), a.workspaceScope, a.bot.id, [b.workspaceScope.workspaceId])).toEqual([]);
   });
 });
 
@@ -238,31 +256,31 @@ describe("listing, reading and deleting Memory items", () => {
     const second = write(a, "二つ目")!;
     write(b, "B の記憶");
 
-    const page = listMemoryItems(db(), a.tenant, a.bot.id, { limit: 1 });
+    const page = listMemoryItems(db(), a.workspaceScope, a.bot.id, { limit: 1 });
     expect(page.items.map((i) => i.id)).toEqual([second.id]);
-    const next = listMemoryItems(db(), a.tenant, a.bot.id, { limit: 1, cursor: page.nextCursor });
+    const next = listMemoryItems(db(), a.workspaceScope, a.bot.id, { limit: 1, cursor: page.nextCursor });
     expect(next.items.map((i) => i.id)).toEqual([first.id]);
     expect(next.nextCursor).toBeUndefined();
-    expect(listMemoryItems(db(), a.tenant, a.other.id, {}).items).toEqual([]);
+    expect(listMemoryItems(db(), a.workspaceScope, a.other.id, {}).items).toEqual([]);
   });
 
   test("a cursor of another Workspace or list is refused", () => {
     write(a, "一つ目");
     write(a, "二つ目");
-    const cursor = listMemoryItems(db(), a.tenant, a.bot.id, { limit: 1 }).nextCursor!;
+    const cursor = listMemoryItems(db(), a.workspaceScope, a.bot.id, { limit: 1 }).nextCursor!;
 
-    expect(() => listMemoryItems(db(), b.tenant, b.bot.id, { cursor })).toThrow(InvalidCursor);
+    expect(() => listMemoryItems(db(), b.workspaceScope, b.bot.id, { cursor })).toThrow(InvalidCursor);
   });
 
   test("another Bot's or Workspace's item id reads and deletes nothing", () => {
     const item = write(a, "守る記憶")!;
 
-    expect(getMemoryItem(db(), a.tenant, a.other.id, item.id)).toBeUndefined();
-    expect(getMemoryItem(db(), b.tenant, b.bot.id, item.id)).toBeUndefined();
-    expect(getMemoryItem(db(), b.tenant, a.bot.id, item.id)).toBeUndefined();
-    expect(deleteMemoryItem(db(), a.tenant, a.other.id, item.id)).toBe(false);
-    expect(deleteMemoryItem(db(), b.tenant, a.bot.id, item.id)).toBe(false);
-    expect(getMemoryItem(db(), a.tenant, a.bot.id, item.id)?.body).toBe("守る記憶");
+    expect(getMemoryItem(db(), a.workspaceScope, a.other.id, item.id)).toBeUndefined();
+    expect(getMemoryItem(db(), b.workspaceScope, b.bot.id, item.id)).toBeUndefined();
+    expect(getMemoryItem(db(), b.workspaceScope, a.bot.id, item.id)).toBeUndefined();
+    expect(deleteMemoryItem(db(), a.workspaceScope, a.other.id, item.id)).toBe(false);
+    expect(deleteMemoryItem(db(), b.workspaceScope, a.bot.id, item.id)).toBe(false);
+    expect(getMemoryItem(db(), a.workspaceScope, a.bot.id, item.id)?.body).toBe("守る記憶");
     expect(titles(a, "守る記憶")).toEqual(["守る記憶"]);
   });
 
@@ -270,8 +288,8 @@ describe("listing, reading and deleting Memory items", () => {
     const item = write(a, "忘れてほしい秘密の合言葉")!;
     write(a, "残す合言葉");
 
-    expect(deleteMemoryItem(db(), a.tenant, a.bot.id, item.id)).toBe(true);
-    expect(getMemoryItem(db(), a.tenant, a.bot.id, item.id)).toBeUndefined();
+    expect(deleteMemoryItem(db(), a.workspaceScope, a.bot.id, item.id)).toBe(true);
+    expect(getMemoryItem(db(), a.workspaceScope, a.bot.id, item.id)).toBeUndefined();
     expect(titles(a, "合言葉")).toEqual(["残す合言葉"]);
     expect(titles(a, "秘密")).toEqual([]);
     expect(
@@ -287,7 +305,7 @@ describe("listing, reading and deleting Memory items", () => {
 
     expect(scan("zqx")).toBeGreaterThan(0);
 
-    deleteMemoryItem(db(), a.tenant, a.bot.id, item.id);
+    deleteMemoryItem(db(), a.workspaceScope, a.bot.id, item.id);
     testDb.sqlite.run("PRAGMA wal_checkpoint(TRUNCATE)");
 
     expect(scan(secret)).toBe(0);
@@ -298,29 +316,33 @@ describe("listing, reading and deleting Memory items", () => {
 describe("deleting the source Conversation", () => {
   test("empties the Run references of the items it wrote and shows them as from a deleted Conversation", () => {
     const fromA = write(a, "消える会話で覚えた")!;
-    const later = runningRun(a.tenant, a.bot);
-    const kept = writeMemoryItem(db(), a.tenant, { runId: later.id, item: draft("残る会話で覚えた"), now })!;
+    const later = runningRun(a.workspaceScope, a.bot);
+    const kept = writeMemoryItem(db(), a.workspaceScope, {
+      runId: later.id,
+      item: draft("残る会話で覚えた"),
+      now,
+    })!;
     const inB = write(b, "B の会話で覚えた")!;
 
-    expect(detachMemoryFromConversation(db(), a.tenant, a.conversationId)).toBe(1);
+    expect(detachMemoryFromConversation(db(), a.workspaceScope, a.conversationId)).toBe(1);
 
-    const detached = getMemoryItem(db(), a.tenant, a.bot.id, fromA.id)!;
+    const detached = getMemoryItem(db(), a.workspaceScope, a.bot.id, fromA.id)!;
     expect(detached).toMatchObject({ createdRunId: null, updatedRunId: null, body: "消える会話で覚えた" });
     expect(detached.created).toEqual({ writer: "bot", source: { kind: "deleted_conversation" } });
     expect(detached.updated).toEqual({ writer: "bot", source: { kind: "deleted_conversation" } });
-    expect(getMemoryItem(db(), a.tenant, a.bot.id, kept.id)?.created).toEqual({
+    expect(getMemoryItem(db(), a.workspaceScope, a.bot.id, kept.id)?.created).toEqual({
       writer: "bot",
       source: { kind: "conversation", conversationId: later.conversationId, runId: later.id },
     });
     expect(titles(a, "消える会話")).toEqual(["消える会話で覚えた"]);
-    expect(getMemoryItem(db(), b.tenant, b.bot.id, inB.id)?.createdRunId).toBe(b.run.id);
+    expect(getMemoryItem(db(), b.workspaceScope, b.bot.id, inB.id)?.createdRunId).toBe(b.run.id);
   });
 
   test("touches nothing for another Workspace's Conversation id", () => {
     const item = write(a, "守る出典")!;
 
-    expect(detachMemoryFromConversation(db(), b.tenant, a.conversationId)).toBe(0);
-    expect(getMemoryItem(db(), a.tenant, a.bot.id, item.id)?.createdRunId).toBe(a.run.id);
+    expect(detachMemoryFromConversation(db(), b.workspaceScope, a.conversationId)).toBe(0);
+    expect(getMemoryItem(db(), a.workspaceScope, a.bot.id, item.id)?.createdRunId).toBe(a.run.id);
   });
 });
 

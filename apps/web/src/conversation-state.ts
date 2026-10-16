@@ -48,7 +48,6 @@ export type TimelineItem =
   | { kind: "message"; message: MessageItem }
   | { kind: "session_closed"; session: SessionItem };
 
-/** The messages in order, with a divider after the last message of each closed Session. */
 export function timeline(state: ConversationState): TimelineItem[] {
   const closed = new Map(state.sessions.filter((s) => s.status === "closed").map((s) => [s.id, s]));
   return state.messages.flatMap((message, i): TimelineItem[] => {

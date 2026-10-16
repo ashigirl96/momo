@@ -11,10 +11,7 @@ const components: Components = {
     ),
 };
 
-/**
- * Draws a public message's Markdown as React elements. Raw HTML is dropped, images are not
- * loaded, and react-markdown's URL filter removes `javascript:` and other unsafe link targets.
- */
+/** The text comes from a Bot, so raw HTML is dropped, images are not loaded and unsafe link targets are removed. */
 export function MessageText({ text }: { text: string }) {
   return (
     <Markdown skipHtml disallowedElements={["img"]} unwrapDisallowed components={components}>

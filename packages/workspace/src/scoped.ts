@@ -1,14 +1,11 @@
 import { eq, type SQL } from "drizzle-orm";
 import { foreignKey, text, unique, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
 import { workspaces } from "./workspace-table.ts";
-import type { TenantContext } from "./tenant.ts";
+import type { WorkspaceScope } from "./workspace-scope.ts";
 
 type WorkspaceOwned = { workspaceId: AnySQLiteColumn; id: AnySQLiteColumn };
 
-/**
- * The `workspace_id` column every Workspace-owned table carries. It is never updated;
- * each table's migration adds the trigger that refuses to change it.
- */
+/** Each table's migration adds the trigger that refuses to change it. */
 export const workspaceIdColumn = () =>
   text("workspace_id")
     .notNull()
@@ -24,6 +21,6 @@ export const sameWorkspaceParent = (
   parent: WorkspaceOwned,
 ) => foreignKey({ columns: [table.workspaceId, parentId], foreignColumns: [parent.workspaceId, parent.id] });
 
-/** The scope condition every read, update, delete and JOIN of a Workspace-owned table carries. */
-export const inTenant = (table: { workspaceId: AnySQLiteColumn }, tenant: TenantContext): SQL =>
-  eq(table.workspaceId, tenant.workspaceId);
+/** The Workspace condition every read, update, delete and JOIN of a Workspace-owned table carries. */
+export const inWorkspace = (table: { workspaceId: AnySQLiteColumn }, workspaceScope: WorkspaceScope): SQL =>
+  eq(table.workspaceId, workspaceScope.workspaceId);

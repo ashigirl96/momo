@@ -4,11 +4,7 @@ import { index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export type MemoryWriter = "bot" | "owner";
 
-/**
- * A Bot's Memory item (ADR-0011). Edits and deletes happen in place, with no versions.
- * The full-text index `memory_fts` and the triggers that keep it in step are raw SQL in the
- * `fts` migration, because Drizzle does not model virtual tables.
- */
+/** `memory_fts` and its triggers are raw SQL migrations, because Drizzle does not model virtual tables. */
 export const memoryItems = sqliteTable(
   "memory_items",
   {

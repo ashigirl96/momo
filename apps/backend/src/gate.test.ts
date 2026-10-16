@@ -48,7 +48,6 @@ async function statuses(requests: { path: string; init?: Parameters<Api["call"]>
 const expected = (pairs: [string, boolean][], ok: number, refused = 404) =>
   Object.fromEntries(pairs.map(([key, allowed]) => [key, allowed ? ok : refused]));
 
-/** Every message, Session, Memory item and Bot of the fixture, as the owner sees them. */
 async function snapshot() {
   const out: unknown[] = [];
   for (const c of f.conversations) out.push(await api.ok(`${c.base}/messages`, MessagePage));

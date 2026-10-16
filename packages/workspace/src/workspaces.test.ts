@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { migratedTestDatabase, type TestDatabase } from "@momo/migrator/testing";
 import { drizzle } from "drizzle-orm/bun-sqlite";
-import { createWorkspace, listWorkspaces, migrations, resolveTenant, type Actor } from "./index.ts";
+import { createWorkspace, listWorkspaces, migrations, resolveWorkspaceScope, type Actor } from "./index.ts";
 
 const owner: Actor = { kind: "owner", loginId: "login_test" };
 const t0 = new Date("2026-10-01T00:00:00Z");
@@ -47,21 +47,21 @@ describe("Workspace", () => {
   });
 });
 
-describe("TenantContext", () => {
+describe("WorkspaceScope", () => {
   test("resolves only for a Workspace that exists", () => {
     const workspace = createWorkspace(db(), { name: "個人", now: t0 });
 
-    const tenant = resolveTenant(db(), workspace.id, owner);
-    expect(tenant?.workspace).toEqual(workspace);
-    expect(tenant?.workspaceId).toBe(workspace.id);
-    expect(tenant?.actor).toEqual(owner);
+    const workspaceScope = resolveWorkspaceScope(db(), workspace.id, owner);
+    expect(workspaceScope?.workspace).toEqual(workspace);
+    expect(workspaceScope?.workspaceId).toBe(workspace.id);
+    expect(workspaceScope?.actor).toEqual(owner);
   });
 
   test("does not fall back to another Workspace for an unknown or malformed id", () => {
     createWorkspace(db(), { name: "個人", now: t0 });
 
-    expect(resolveTenant(db(), `workspace_${Bun.randomUUIDv7()}`, owner)).toBeUndefined();
-    expect(resolveTenant(db(), "", owner)).toBeUndefined();
-    expect(resolveTenant(db(), "default", owner)).toBeUndefined();
+    expect(resolveWorkspaceScope(db(), `workspace_${Bun.randomUUIDv7()}`, owner)).toBeUndefined();
+    expect(resolveWorkspaceScope(db(), "", owner)).toBeUndefined();
+    expect(resolveWorkspaceScope(db(), "default", owner)).toBeUndefined();
   });
 });

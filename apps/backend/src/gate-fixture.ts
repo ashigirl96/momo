@@ -1,7 +1,4 @@
-/**
- * The P2 gate fixture: 2 Workspaces, 2 Bots each, 2 Conversations per Bot, built through the real
- * API so every row comes from the real routes and migrations. Test-only.
- */
+/** Built through the real API, so every row comes from the real routes and migrations. */
 import {
   BotItem,
   ConversationItem,
@@ -19,7 +16,6 @@ export type GateConversation = {
   workspaceId: string;
   botId: string;
   id: string;
-  /** `/api/workspaces/<own Workspace>/conversations/<id>` */
   base: string;
   /** Unique to this Conversation; it is in its message, Attachment and Memory item. */
   secret: string;
@@ -81,7 +77,6 @@ export class Api {
     throw new Error(`Run ${runId} did not finish`);
   }
 
-  /** Posts a message, waits for its Run and returns the Bot's reply. */
   async say(workspacePath: string, base: string, text: string, files: File[] = []) {
     const form = new FormData();
     form.set("text", text);
@@ -97,7 +92,6 @@ export class Api {
   }
 }
 
-/** Reads SSE frames until `until` matches one, the server ends the stream, or the time is up. */
 export async function frames(
   res: Response,
   until: (frame: Frame) => boolean = () => false,
@@ -137,11 +131,7 @@ export async function frames(
 export const finished = (runId: string) => (f: Frame) =>
   f.event.kind === "run_finished" && f.event.runId === runId;
 
-/**
- * Builds the fixture. Each Conversation gets one message with an Attachment that also asks the Bot
- * to remember its secret; the second Conversation of each Bot is then reset and talked to again, so
- * it has a closed and an open Session.
- */
+/** The second Conversation of each Bot is reset and talked to again, so it has a closed and an open Session. */
 export async function buildGateFixture(api: Api): Promise<GateFixture> {
   const workspaces: GateWorkspace[] = [];
   for (const w of [0, 1]) {

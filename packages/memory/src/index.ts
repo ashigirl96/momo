@@ -18,3 +18,5 @@ export {
   type MemoryRecord,
   type MemoryRow,
 } from "./items.ts";
+
+export { toMemoryHit, toMemoryItem } from "./wire.ts";

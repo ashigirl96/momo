@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/api";
 import { BotAvatar } from "@/bot-avatar";
 import { BotSettingsCard, SaveDiscard, type CardSettings, type CardStatus } from "@/bot-settings-card";
-import { BotBubble, ChatFrame, Composer, HumanBubble, useAlive } from "@/chat-parts";
+import { BotBubble, MessageFrame, Composer, HumanBubble, useAlive } from "@/message-parts";
 import { ConversationView } from "@/conversation-view";
 import { DeleteDialog } from "@/delete-dialog";
 import { cn } from "@/lib/utils";
@@ -222,7 +222,7 @@ function CreateBot({ workspace, onSaved }: { workspace: WorkspaceItem; onSaved: 
   const open = proposal?.status === "pending";
 
   return (
-    <ChatFrame
+    <MessageFrame
       title="新しい Bot"
       composer={
         <Composer
@@ -261,7 +261,7 @@ function CreateBot({ workspace, onSaved }: { workspace: WorkspaceItem; onSaved: 
         <BotBubble>わかりました。どんな Bot にしたいか、もう一度教えてください。</BotBubble>
       )}
       {failed && <p className="text-destructive text-sm">うまくいきませんでした。もう一度試してください。</p>}
-    </ChatFrame>
+    </MessageFrame>
   );
 }
 
@@ -312,7 +312,7 @@ function BotSettingsView(props: {
       : undefined;
 
   return (
-    <ChatFrame
+    <MessageFrame
       title={props.bot.name}
       actions={
         <>
@@ -362,6 +362,6 @@ function BotSettingsView(props: {
           onClose={() => setDeleting(false)}
         />
       )}
-    </ChatFrame>
+    </MessageFrame>
   );
 }

@@ -1,6 +1,6 @@
 import type { ConversationEvent } from "@momo/contracts";
 import type { Db } from "@momo/migrator";
-import { inTenant, type TenantContext } from "@momo/workspace";
+import { inWorkspace, type WorkspaceScope } from "@momo/workspace";
 import { and, asc, eq, gt, inArray, max, min } from "drizzle-orm";
 import { conversationEvents, runs } from "./schema.ts";
 
@@ -8,16 +8,16 @@ export type StoredEvent = { id: number; event: ConversationEvent };
 
 export const EVENT_PAGE_MAX = 500;
 
-/** Appends to the Conversation's event log; callers check the Conversation is in the tenant first. */
+/** Callers check the Conversation is in the Workspace first. */
 export function appendEvent(
   db: Db,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   input: { conversationId: string; runId?: string; event: ConversationEvent; now: Date },
 ): number {
   return db
     .insert(conversationEvents)
     .values({
-      workspaceId: tenant.workspaceId,
+      workspaceId: workspaceScope.workspaceId,
       conversationId: input.conversationId,
       runId: input.runId,
       event: input.event,
@@ -27,10 +27,9 @@ export function appendEvent(
     .get().id;
 }
 
-/** The Conversation's events after `afterId`, oldest first. Another scope's ids are never returned. */
 export function eventsAfter(
   db: Db,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   conversationId: string,
   afterId: number,
   limit = EVENT_PAGE_MAX,
@@ -40,7 +39,7 @@ export function eventsAfter(
     .from(conversationEvents)
     .where(
       and(
-        inTenant(conversationEvents, tenant),
+        inWorkspace(conversationEvents, workspaceScope),
         eq(conversationEvents.conversationId, conversationId),
         gt(conversationEvents.id, afterId),
       ),
@@ -50,13 +49,10 @@ export function eventsAfter(
     .all();
 }
 
-/**
- * Where a client that just read the history subscribes from: before the first event of the oldest
- * unfinished Run, so the Run's stream replays, or else after the Conversation's last event.
- */
-export function streamAfter(db: Db, tenant: TenantContext, conversationId: string): number {
-  const scope = and(
-    inTenant(conversationEvents, tenant),
+/** Before the first event of the oldest unfinished Run, so a reload replays that Run's stream. */
+export function streamAfter(db: Db, workspaceScope: WorkspaceScope, conversationId: string): number {
+  const inConversation = and(
+    inWorkspace(conversationEvents, workspaceScope),
     eq(conversationEvents.conversationId, conversationId),
   );
   const unfinished = db
@@ -64,7 +60,7 @@ export function streamAfter(db: Db, tenant: TenantContext, conversationId: strin
     .from(runs)
     .where(
       and(
-        inTenant(runs, tenant),
+        inWorkspace(runs, workspaceScope),
         eq(runs.conversationId, conversationId),
         inArray(runs.status, ["queued", "running"]),
       ),
@@ -72,14 +68,14 @@ export function streamAfter(db: Db, tenant: TenantContext, conversationId: strin
   const firstOfRun = db
     .select({ id: min(conversationEvents.id) })
     .from(conversationEvents)
-    .where(and(scope, inArray(conversationEvents.runId, unfinished)))
+    .where(and(inConversation, inArray(conversationEvents.runId, unfinished)))
     .get()?.id;
   if (firstOfRun != null) return firstOfRun - 1;
   return (
     db
       .select({ id: max(conversationEvents.id) })
       .from(conversationEvents)
-      .where(scope)
+      .where(inConversation)
       .get()?.id ?? 0
   );
 }

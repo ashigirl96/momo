@@ -1,50 +1,46 @@
 import type { Db } from "@momo/migrator";
-import { getConversation, type TenantContext } from "@momo/workspace";
-import { insertAttachments, type AttachmentFiles, type AttachmentUpload } from "./attachments.ts";
+import { getConversation, type WorkspaceScope } from "@momo/workspace";
+import { insertAttachments, type AttachmentFiles, type NewAttachment } from "./attachments.ts";
 import { appendEvent } from "./events.ts";
 import { insertMessage, toMessageItem, type Message } from "./messages.ts";
 import { queueRun, type Run } from "./runs.ts";
 import { openSession } from "./sessions.ts";
 
-/**
- * The owner speaks in a Conversation: the message, its Attachments, the primary Bot's Session and
- * a queued Run are written in one transaction, or nothing is when the Conversation is not the
- * tenant's. Attachment files written before a failure are removed again.
- */
+/** One transaction writes everything, and Attachment files written before a failure are removed again. */
 export function postOwnerMessage(
   db: Db,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   input: {
     conversationId: string;
     text: string;
     now: Date;
-    attachments?: { files: AttachmentFiles; uploads: AttachmentUpload[] };
+    attachments?: { files: AttachmentFiles; newAttachments: NewAttachment[] };
   },
 ): { message: Message; run: Run } | undefined {
   const written: string[] = [];
   try {
-    return post(db, tenant, input, written);
+    return post(db, workspaceScope, input, written);
   } catch (error) {
-    for (const id of written) input.attachments!.files.remove(tenant, id);
+    for (const id of written) input.attachments!.files.remove(workspaceScope, id);
     throw error;
   }
 }
 
 function post(
   db: Db,
-  tenant: TenantContext,
+  workspaceScope: WorkspaceScope,
   input: Parameters<typeof postOwnerMessage>[2],
   written: string[],
 ): { message: Message; run: Run } | undefined {
   return db.transaction((tx) => {
-    const conversation = getConversation(tx, tenant, input.conversationId);
+    const conversation = getConversation(tx, workspaceScope, input.conversationId);
     if (!conversation) return undefined;
-    const session = openSession(tx, tenant, {
+    const session = openSession(tx, workspaceScope, {
       conversationId: conversation.id,
       botId: conversation.primaryBotId,
       now: input.now,
     });
-    const inserted = insertMessage(tx, tenant, {
+    const inserted = insertMessage(tx, workspaceScope, {
       conversationId: conversation.id,
       author: { kind: "owner" },
       sessionId: session.id,
@@ -54,7 +50,7 @@ function post(
     const message: Message = {
       ...inserted,
       attachments: input.attachments
-        ? insertAttachments(tx, tenant, {
+        ? insertAttachments(tx, workspaceScope, {
             messageId: inserted.id,
             ...input.attachments,
             now: input.now,
@@ -62,12 +58,12 @@ function post(
           })
         : [],
     };
-    appendEvent(tx, tenant, {
+    appendEvent(tx, workspaceScope, {
       conversationId: conversation.id,
       event: { kind: "message_created", message: toMessageItem(message) },
       now: input.now,
     });
-    const run = queueRun(tx, tenant, {
+    const run = queueRun(tx, workspaceScope, {
       conversationId: conversation.id,
       botId: conversation.primaryBotId,
       sessionId: session.id,

@@ -79,7 +79,6 @@ export const ApiError = z.strictObject({
 });
 export type ApiError = z.infer<typeof ApiError>;
 
-/** What `momo open` receives from the backend over the owner-only Unix socket. */
 export const Pairing = z.strictObject({
   url: z.url(),
   expiresAt: epochMs,

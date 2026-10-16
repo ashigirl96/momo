@@ -13,7 +13,7 @@ bun run open           # 別の terminal で。ブラウザでログイン済み
 ```
 
 - データは `~/Library/Application Support/momo` に置く。`MOMO_DATA_DIR` で変えられる。
-- port は `MOMO_PORT` で変えられる。port を変えると origin が変わり、既存の Login は効かなくなる。
+- port は 47317 に固定している。port が変わると origin が変わり、既存の Login が効かなくなるため。
 - `bun run open -- --print` はブラウザを開かず pairing の URL を出す。URL は 1 分・1 回限り。
 
 ## 確かめる

@@ -5,9 +5,9 @@ import {
   createConversation,
   createWorkspace,
   migrations as workspaceMigrations,
-  resolveTenant,
+  resolveWorkspaceScope,
   type Conversation,
-  type TenantContext,
+  type WorkspaceScope,
 } from "@momo/workspace";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import {
@@ -30,7 +30,7 @@ import {
   readAttachment,
   removeWorkspaceAttachments,
   sweepAttachmentFiles,
-  type AttachmentUpload,
+  type NewAttachment,
 } from "./attachments.ts";
 import { deleteConversationRecords } from "./deletion.ts";
 import { eventsAfter } from "./events.ts";
@@ -45,22 +45,22 @@ let testDb: TestDatabase;
 let dataDir: string;
 let files: AttachmentFiles;
 const db = () => drizzle({ client: testDb.sqlite });
-let a: TenantContext;
-let b: TenantContext;
+let a: WorkspaceScope;
+let b: WorkspaceScope;
 let convA: Conversation;
 let convA2: Conversation;
 let convB: Conversation;
 
-function workspace(name: string): TenantContext {
-  return resolveTenant(db(), createWorkspace(db(), { name, now }).id, {
+function workspace(name: string): WorkspaceScope {
+  return resolveWorkspaceScope(db(), createWorkspace(db(), { name, now }).id, {
     kind: "owner",
     loginId: `login_${name}`,
   })!;
 }
 
-function conversation(tenant: TenantContext): Conversation {
-  const bot = createBot(db(), tenant, { ...settings, name: "Bot", tools: [], now });
-  return createConversation(db(), tenant, { primaryBotId: bot.id, now })!;
+function conversation(workspaceScope: WorkspaceScope): Conversation {
+  const bot = createBot(db(), workspaceScope, { ...settings, name: "Bot", tools: [], now });
+  return createConversation(db(), workspaceScope, { primaryBotId: bot.id, now })!;
 }
 
 beforeEach(() => {
@@ -79,30 +79,32 @@ afterEach(() => {
   rmSync(dataDir, { recursive: true, force: true });
 });
 
-const upload = (name: string, text = "中身", contentType = "text/plain"): AttachmentUpload => ({
+const newAttachment = (name: string, text = "中身", contentType = "text/plain"): NewAttachment => ({
   name,
   contentType,
   bytes: new TextEncoder().encode(text),
 });
 
-const post = (uploads: AttachmentUpload[], tenant = a, conv = convA) =>
-  postOwnerMessage(db(), tenant, {
+const post = (newAttachments: NewAttachment[], workspaceScope = a, conv = convA) =>
+  postOwnerMessage(db(), workspaceScope, {
     conversationId: conv.id,
     text: "見て",
     now,
-    attachments: { files, uploads },
+    attachments: { files, newAttachments },
   });
 
 const mode = (path: string) => statSync(path).mode & 0o777;
 
-/** Every path under the data dir, so a test can show nothing landed outside the expected file. */
 function tree(dir = dataDir): string[] {
   return readdirSync(dir, { recursive: true, encoding: "utf8" }).toSorted();
 }
 
 describe("attaching files to an owner message", () => {
   test("stores each file owner-only in the Workspace's dir and lists it on the message", () => {
-    const { message } = post([upload("memo.txt", "旅程"), upload("plan.html", "<p>x</p>", "text/html")])!;
+    const { message } = post([
+      newAttachment("memo.txt", "旅程"),
+      newAttachment("plan.html", "<p>x</p>", "text/html"),
+    ])!;
 
     expect(message.attachments.map((x) => [x.name, x.contentType, x.size])).toEqual([
       ["memo.txt", "text/plain", 6],
@@ -125,8 +127,8 @@ describe("attaching files to an owner message", () => {
   });
 
   test("is found only through its own Workspace and Conversation", () => {
-    const [mine] = post([upload("memo.txt")])!.message.attachments;
-    const [theirs] = post([upload("secret.txt")], b, convB)!.message.attachments;
+    const [mine] = post([newAttachment("memo.txt")])!.message.attachments;
+    const [theirs] = post([newAttachment("secret.txt")], b, convB)!.message.attachments;
 
     expect(getAttachment(db(), a, { conversationId: convA.id, attachmentId: mine!.id })?.name).toBe(
       "memo.txt",
@@ -138,9 +140,9 @@ describe("attaching files to an owner message", () => {
     expect(readAttachment(files, a, theirs!)).toBeUndefined();
   });
 
-  test("keeps the uploaded name out of the path, so traversal names land inside the Workspace's dir", () => {
+  test("keeps the given name out of the path, so traversal names land inside the Workspace's dir", () => {
     const names = ["../../app.db", "/etc/passwd", "..\\..\\evil.txt", "a/../../b", "..", "\u0000\n"];
-    const { message } = post(names.map((n) => upload(n)))!;
+    const { message } = post(names.map((n) => newAttachment(n)))!;
 
     expect(message.attachments.map((x) => x.name)).toEqual([
       "app.db",
@@ -165,13 +167,13 @@ describe("attaching files to an owner message", () => {
     mkdirSync(join(dataDir, "attachments"), { mode: 0o700 });
     symlinkSync(elsewhere, join(dataDir, "attachments", a.workspaceId));
 
-    expect(() => post([upload("memo.txt")])).toThrow();
+    expect(() => post([newAttachment("memo.txt")])).toThrow();
     expect(readdirSync(elsewhere)).toEqual([]);
     expect(listMessages(db(), a, convA.id, {})!.items).toEqual([]);
   });
 
   test("does not follow a stored file replaced by a symlink", () => {
-    const [memo] = post([upload("memo.txt")])!.message.attachments;
+    const [memo] = post([newAttachment("memo.txt")])!.message.attachments;
     const path = join(dataDir, "attachments", a.workspaceId, memo!.id);
     writeFileSync(join(dataDir, "outside.txt"), "outside");
     unlinkSync(path);
@@ -182,9 +184,9 @@ describe("attaching files to an owner message", () => {
 
   test("names an unknown or malformed content type as octet-stream", () => {
     const { message } = post([
-      upload("a", "x", "text/html; charset=utf-8"),
-      upload("b", "x", "nonsense"),
-      upload("c", "x", ""),
+      newAttachment("a", "x", "text/html; charset=utf-8"),
+      newAttachment("b", "x", "nonsense"),
+      newAttachment("c", "x", ""),
     ])!;
     expect(message.attachments.map((x) => x.contentType)).toEqual([
       "text/html",
@@ -194,7 +196,7 @@ describe("attaching files to an owner message", () => {
   });
 
   test("writes no file when the Conversation is another Workspace's", () => {
-    expect(post([upload("memo.txt")], a, convB)).toBeUndefined();
+    expect(post([newAttachment("memo.txt")], a, convB)).toBeUndefined();
     expect(existsSync(join(dataDir, "attachments", a.workspaceId))).toBe(false);
     expect(existsSync(join(dataDir, "attachments", b.workspaceId))).toBe(false);
   });
@@ -204,7 +206,7 @@ describe("attaching files to an owner message", () => {
       "CREATE TRIGGER fail_attachment BEFORE INSERT ON attachments BEGIN SELECT RAISE(ABORT, 'boom'); END",
     );
 
-    expect(() => post([upload("memo.txt")])).toThrow(/Failed query/);
+    expect(() => post([newAttachment("memo.txt")])).toThrow(/Failed query/);
     expect(readdirSync(join(dataDir, "attachments", a.workspaceId))).toEqual([]);
     expect(listMessages(db(), a, convA.id, {})!.items).toEqual([]);
   });
@@ -222,8 +224,8 @@ describe("attaching files to an owner message", () => {
 
 describe("removing a Workspace's attachment files", () => {
   test("removes that Workspace's dir only", () => {
-    post([upload("memo.txt")]);
-    const [theirs] = post([upload("secret.txt", "B の中身")], b, convB)!.message.attachments;
+    post([newAttachment("memo.txt")]);
+    const [theirs] = post([newAttachment("secret.txt", "B の中身")], b, convB)!.message.attachments;
 
     removeWorkspaceAttachments(files, a);
 
@@ -248,9 +250,9 @@ describe("removing a Workspace's attachment files", () => {
 
 describe("sweeping Attachment files at startup", () => {
   test("removes the files whose rows a committed delete took away and keeps every file that has a row", () => {
-    const gone = post([upload("a.txt"), upload("b.txt")])!.message.attachments;
-    const [kept] = post([upload("kept.txt", "残る")], a, convA2)!.message.attachments;
-    const [theirs] = post([upload("theirs.txt", "B の中身")], b, convB)!.message.attachments;
+    const gone = post([newAttachment("a.txt"), newAttachment("b.txt")])!.message.attachments;
+    const [kept] = post([newAttachment("kept.txt", "残る")], a, convA2)!.message.attachments;
+    const [theirs] = post([newAttachment("theirs.txt", "B の中身")], b, convB)!.message.attachments;
     deleteConversationRecords(db(), a, [convA.id]);
 
     expect(sweepAttachmentFiles(db(), files)).toBe(2);
@@ -262,7 +264,7 @@ describe("sweeping Attachment files at startup", () => {
   });
 
   test("removes the dir of a Workspace without Attachment rows, and unlinks a symlinked one without touching its target", () => {
-    post([upload("memo.txt")], b, convB);
+    post([newAttachment("memo.txt")], b, convB);
     deleteConversationRecords(db(), b, [convB.id]);
     const elsewhere = join(dataDir, "elsewhere");
     mkdirSync(elsewhere);
@@ -276,7 +278,7 @@ describe("sweeping Attachment files at startup", () => {
   });
 
   test("leaves names that are not Attachment or Workspace ids alone", () => {
-    post([upload("memo.txt")]);
+    post([newAttachment("memo.txt")]);
     writeFileSync(join(dataDir, "attachments", "README"), "x");
     writeFileSync(join(dataDir, "attachments", a.workspaceId, "notes"), "x");
 

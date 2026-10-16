@@ -10,7 +10,6 @@ export const CONTENT_SECURITY_POLICY = [
   "frame-ancestors 'none'",
 ].join("; ");
 
-/** For Attachment bytes: no scripts, an opaque origin, no loads, framed only by the momo UI. */
 export const ATTACHMENT_CONTENT_SECURITY_POLICY = [
   "sandbox",
   "default-src 'none'",
@@ -49,10 +48,7 @@ export function isSafeMethod(method: string): boolean {
   return SAFE_METHODS.has(method);
 }
 
-/**
- * Refuses requests a page on another origin could have caused.
- * Returns undefined when the request may proceed.
- */
+/** Returns undefined when the request may proceed. */
 export function crossOriginRefusal(req: Request, origin: string): string | undefined {
   const site = req.headers.get("sec-fetch-site");
   if (isSafeMethod(req.method)) {

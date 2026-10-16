@@ -13,12 +13,10 @@ export { postOwnerMessage } from "./post-message.ts";
 export {
   appendRunDelta,
   cancelRun,
-  failInterruptedRuns,
   finishRun,
   getRun,
   startNextRun,
   toRunItem,
-  type QueuedSession,
   type Run,
   type StartedRun,
 } from "./runs.ts";
@@ -37,7 +35,6 @@ export {
   readAttachment,
   removeAttachmentFiles,
   removeWorkspaceAttachments,
-  sweepAttachmentFiles,
   type Attachment,
-  type AttachmentUpload,
+  type NewAttachment,
 } from "./attachments.ts";
