@@ -1,0 +1,11 @@
+{
+  "name": "@momo/memory",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "drizzle-orm": "1.0.0-rc.4"
+  }
+}
