@@ -1,6 +1,7 @@
 import type { Status, WorkspaceItem } from "@momo/contracts";
 import { useEffect, useState } from "react";
 import { api, NotFound, Unauthenticated } from "@/api";
+import { BotsPane } from "@/bots-pane";
 import { WorkspaceShell } from "@/workspace-shell";
 
 type Shell =
@@ -84,7 +85,7 @@ export function WorkspacePage({ workspaceId }: { workspaceId: string }) {
 
   return (
     <WorkspaceShell status={shell.status} workspaces={shell.workspaces} current={shell.current}>
-      <p className="text-muted-foreground m-auto text-sm">{shell.current.name} にはまだ Bot がいません。</p>
+      <BotsPane key={shell.current.id} workspace={shell.current} />
     </WorkspaceShell>
   );
 }
