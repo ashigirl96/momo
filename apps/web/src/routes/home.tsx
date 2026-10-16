@@ -1,47 +1,91 @@
-import type { Status } from "@momo/contracts";
-import { Link } from "@tanstack/react-router";
+import type { Status, WorkspaceItem } from "@momo/contracts";
 import { useEffect, useState } from "react";
-import { api, Unauthenticated } from "@/api";
+import { api, NotFound, Unauthenticated } from "@/api";
+import { WorkspaceShell } from "@/workspace-shell";
 
-const warningText: Record<Status["warnings"][number]["kind"], string> = {
-  filevault_off:
-    "FileVault が無効です。Mac のディスクが暗号化されていないため、momo のデータも暗号化されません。",
-  time_machine_not_excluded: "データの dir を Time Machine の対象から外せませんでした。",
-};
+type Shell =
+  | { kind: "loading" }
+  | { kind: "signed_out" }
+  | {
+      kind: "ready";
+      forId: string | undefined;
+      status: Status;
+      workspaces: WorkspaceItem[];
+      current: WorkspaceItem | "missing" | undefined;
+    };
 
-export function HomePage() {
-  const [status, setStatus] = useState<Status | "signed_out" | undefined>();
+/** Loads the shell for one Workspace; a response for a Workspace the page left is dropped. */
+function useShell(workspaceId: string | undefined): Shell {
+  const [shell, setShell] = useState<Shell>({ kind: "loading" });
 
   useEffect(() => {
-    api
-      .status()
-      .then(setStatus)
+    let active = true;
+    const current =
+      workspaceId === undefined
+        ? Promise.resolve(undefined)
+        : api.workspace(workspaceId).catch((error) => {
+            if (error instanceof NotFound) return "missing" as const;
+            throw error;
+          });
+    Promise.all([api.status(), api.workspaces(), current])
+      .then(([status, list, workspace]) => {
+        if (active)
+          setShell({
+            kind: "ready",
+            forId: workspaceId,
+            status,
+            workspaces: list.workspaces,
+            current: workspace,
+          });
+      })
       .catch((error) => {
-        if (error instanceof Unauthenticated) setStatus("signed_out");
-        else throw error;
+        if (!(error instanceof Unauthenticated)) throw error;
+        if (active) setShell({ kind: "signed_out" });
       });
-  }, []);
+    return () => {
+      active = false;
+    };
+  }, [workspaceId]);
 
-  if (status === undefined) return null;
-  if (status === "signed_out") return <SignedOut />;
+  // Until the new Workspace loads, show nothing rather than the previous one under the new path.
+  if (shell.kind === "ready" && shell.forId !== workspaceId) return { kind: "loading" };
+  return shell;
+}
+
+export function HomePage() {
+  const shell = useShell(undefined);
+
+  if (shell.kind === "loading") return null;
+  if (shell.kind === "signed_out") return <SignedOut />;
 
   return (
-    <div className="flex min-h-screen flex-col">
-      {status.warnings.map((w) => (
-        <div key={w.kind} role="alert" className="bg-destructive/10 text-destructive px-4 py-2 text-sm">
-          {warningText[w.kind]}
-        </div>
-      ))}
-      <header className="flex items-center justify-between border-b px-4 py-2">
-        <span className="font-semibold">momo</span>
-        <Link to="/logins" className="text-muted-foreground text-sm hover:underline">
-          ログイン中のブラウザ
-        </Link>
-      </header>
-      <main className="text-muted-foreground flex flex-1 items-center justify-center text-sm">
-        まだ Workspace がありません
-      </main>
-    </div>
+    <WorkspaceShell status={shell.status} workspaces={shell.workspaces} current={undefined}>
+      <p className="text-muted-foreground m-auto text-sm">
+        {shell.workspaces.length === 0
+          ? "まだ Workspace がありません。左の ＋ から作れます。"
+          : "左のタイルから Workspace を選んでください。"}
+      </p>
+    </WorkspaceShell>
+  );
+}
+
+export function WorkspacePage({ workspaceId }: { workspaceId: string }) {
+  const shell = useShell(workspaceId);
+
+  if (shell.kind === "loading") return null;
+  if (shell.kind === "signed_out") return <SignedOut />;
+  if (shell.current === "missing" || shell.current === undefined) {
+    return (
+      <WorkspaceShell status={shell.status} workspaces={shell.workspaces} current={undefined}>
+        <p className="text-muted-foreground m-auto text-sm">この Workspace はありません。</p>
+      </WorkspaceShell>
+    );
+  }
+
+  return (
+    <WorkspaceShell status={shell.status} workspaces={shell.workspaces} current={shell.current}>
+      <p className="text-muted-foreground m-auto text-sm">{shell.current.name} にはまだ Bot がいません。</p>
+    </WorkspaceShell>
   );
 }
 
