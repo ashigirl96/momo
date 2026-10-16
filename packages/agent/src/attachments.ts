@@ -96,7 +96,7 @@ export class AttachmentFiles {
     }
   }
 
-  read(tenant: TenantContext, id: string): Uint8Array | undefined {
+  read(tenant: TenantContext, id: string): Uint8Array<ArrayBuffer> | undefined {
     const dir = this.#dir(tenant, false);
     if (!dir) return undefined;
     let fd: number;
@@ -108,7 +108,7 @@ export class AttachmentFiles {
     }
     try {
       if (!fstatSync(fd).isFile()) throw new Error("attachment is not a regular file");
-      return readFileSync(fd);
+      return new Uint8Array(readFileSync(fd));
     } finally {
       closeSync(fd);
     }
@@ -126,9 +126,9 @@ export class AttachmentFiles {
 /** The display name: the last path segment without control characters; never used as a path. */
 export function attachmentName(uploaded: string): string {
   const last = uploaded.split(/[/\\]/).at(-1) ?? "";
-  // oxlint-disable-next-line no-control-regex
-  const clean = last
-    .replace(/[\u0000-\u001f\u007f]/g, "")
+  const clean = [...last]
+    .filter((c) => c >= " " && c !== "\u007f")
+    .join("")
     .trim()
     .slice(0, NAME_MAX);
   return clean === "" || clean === "." || clean === ".." ? "file" : clean;
@@ -250,7 +250,7 @@ export function readAttachment(
   files: AttachmentFiles,
   tenant: TenantContext,
   attachment: Attachment,
-): Uint8Array | undefined {
+): Uint8Array<ArrayBuffer> | undefined {
   return files.read(tenant, attachment.id);
 }
 

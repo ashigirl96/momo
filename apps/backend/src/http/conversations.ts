@@ -1,13 +1,21 @@
 import {
   CreateConversationRequest,
-  PostMessageRequest,
   type ConversationDetail,
   type ConversationItem,
   type ConversationList,
   type MessagePage,
   type PostMessageResponse,
 } from "@momo/contracts";
-import { getRun, listMessages, postOwnerMessage, streamAfter, toMessageItem, toRunItem } from "@momo/agent";
+import {
+  getAttachment,
+  getRun,
+  listMessages,
+  postOwnerMessage,
+  streamAfter,
+  toMessageItem,
+  toRunItem,
+  type AttachmentFiles,
+} from "@momo/agent";
 import type { Db } from "@momo/migrator";
 import {
   createConversation,
@@ -18,6 +26,7 @@ import {
 } from "@momo/workspace";
 import type { ConversationHub } from "../conversation-hub.ts";
 import type { RunLoop } from "../run-loop.ts";
+import { attachmentResponse, readPostedMessage } from "./attachments.ts";
 import { conversationEvents } from "./conversation-events.ts";
 import { apiError, json } from "./respond.ts";
 import type { TenantRequest } from "./workspaces.ts";
@@ -27,12 +36,15 @@ export type ConversationApiContext = {
   now: () => Date;
   runs: RunLoop;
   hub: ConversationHub;
+  attachments: AttachmentFiles;
   /** How often an open stream re-checks its Login and Workspace. */
   streamCheckMs: number;
 };
 
 const CONVERSATION = /^\/conversations\/([^/]+)(\/messages|\/events)?$/;
+const CONVERSATION_ATTACHMENT = /^\/conversations\/([^/]+)(\/attachments\/[^/]+)$/;
 const RUN = /^\/runs\/([^/]+)$/;
+const ATTACHMENT = /^\/attachments\/([^/]+)$/;
 
 function toItem(c: ConversationSummary): ConversationItem {
   return { id: c.id, primaryBotId: c.primaryBotId, createdAt: c.createdAt.getTime() };
@@ -95,12 +107,24 @@ export async function conversationRoute(
     return found ? json(toRunItem(found)) : apiError("not_found", "no such Run");
   }
 
-  const match = CONVERSATION.exec(rest);
+  const match = CONVERSATION.exec(rest) ?? CONVERSATION_ATTACHMENT.exec(rest);
   if (!match) return undefined;
   const id = decode(match[1]!);
   const conversation = id === undefined ? undefined : getConversation(ctx.db, tenant, id);
   if (!conversation) return apiError("not_found", "no such Conversation");
   const sub = match[2];
+
+  const attachment = sub === undefined ? undefined : ATTACHMENT.exec(sub);
+  if (attachment && req.method === "GET") {
+    const attachmentId = decode(attachment[1]!);
+    const found =
+      attachmentId === undefined
+        ? undefined
+        : getAttachment(ctx.db, tenant, { conversationId: conversation.id, attachmentId });
+    return found
+      ? attachmentResponse(ctx.attachments, tenant, found)
+      : apiError("not_found", "no such Attachment");
+  }
 
   if (sub === undefined && req.method === "GET")
     return json({
@@ -122,12 +146,13 @@ export async function conversationRoute(
     });
 
   if (sub === "/messages" && req.method === "POST") {
-    const input = PostMessageRequest.safeParse(await body());
-    if (!input.success) return apiError("bad_request", "expected { text } of 1–4000 characters");
+    const input = await readPostedMessage(req, body);
+    if (input instanceof Response) return input;
     const posted = postOwnerMessage(ctx.db, tenant, {
       conversationId: conversation.id,
-      text: input.data.text,
+      text: input.text,
       now: ctx.now(),
+      attachments: { files: ctx.attachments, uploads: input.uploads },
     });
     if (!posted) return apiError("not_found", "no such Conversation");
     ctx.hub.notify(tenant.workspaceId, conversation.id);

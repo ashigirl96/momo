@@ -1,5 +1,6 @@
 import { HOSTNAME, pairingSocketPath, type Pairing, type Warning } from "@momo/contracts";
 import { migrate, openDatabase } from "@momo/migrator";
+import { AttachmentFiles } from "@momo/agent";
 import { buildWeb, type WebAsset } from "@momo/web/build";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { join } from "node:path";
@@ -77,6 +78,7 @@ export async function startBackend(options: BackendOptions): Promise<Backend> {
       db,
       runs,
       hub,
+      attachments: new AttachmentFiles(join(options.dataDir, "attachments")),
       streamCheckMs: options.streamCheckMs ?? 5000,
       pairing,
       now,
