@@ -5,6 +5,7 @@ import {
   ConversationItem,
   ConversationList,
   LoginList,
+  MemoryList,
   MessagePage,
   PostMessageResponse,
   Status,
@@ -81,10 +82,21 @@ export const api = {
       method: "POST",
       body: JSON.stringify(body),
     }),
+  memory: (workspaceId: string, botId: string, cursor?: string) =>
+    request(
+      `${memory(workspaceId, botId)}${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+      MemoryList,
+    ),
+  deleteMemory: (workspaceId: string, botId: string, itemId: string) =>
+    request(`${memory(workspaceId, botId)}/${encodeURIComponent(itemId)}`, undefined, { method: "DELETE" }),
   /** The browser resumes with `Last-Event-ID` on its own; `after` only sets the first connect. */
   conversationEvents: (workspaceId: string, conversationId: string, after: number) =>
     new EventSource(`${conversation(workspaceId, conversationId)}/events?after=${after}`),
 };
+
+function memory(workspaceId: string, botId: string) {
+  return `${scoped(workspaceId)}/bots/${encodeURIComponent(botId)}/memory`;
+}
 
 function conversation(workspaceId: string, conversationId: string) {
   return `${scoped(workspaceId)}/conversations/${encodeURIComponent(conversationId)}`;
