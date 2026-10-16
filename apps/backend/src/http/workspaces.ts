@@ -11,6 +11,7 @@ import {
 import type { Server } from "bun";
 import { botRoute } from "./bots.ts";
 import { conversationRoute, type ConversationApiContext } from "./conversations.ts";
+import { deletionRoute } from "./deletion.ts";
 import { memoryRoute } from "./memory.ts";
 import { apiError, json } from "./respond.ts";
 
@@ -84,5 +85,10 @@ export async function workspaceRoute(
 
 async function tenantRoute(request: TenantRequest, ctx: WorkspaceApiContext): Promise<Response | undefined> {
   if (request.rest === "" && request.req.method === "GET") return json(toItem(request.tenant.workspace));
-  return (await conversationRoute(request, ctx)) ?? memoryRoute(request, ctx) ?? botRoute(request, ctx);
+  return (
+    (await conversationRoute(request, ctx)) ??
+    memoryRoute(request, ctx) ??
+    deletionRoute(request, ctx) ??
+    botRoute(request, ctx)
+  );
 }

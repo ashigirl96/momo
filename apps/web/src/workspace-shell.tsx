@@ -4,6 +4,7 @@ import { useState, type FormEvent, type ReactNode } from "react";
 import { api } from "@/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DeleteDialog } from "@/delete-dialog";
 import { cn } from "@/lib/utils";
 
 const warningText: Record<Status["warnings"][number]["kind"], string> = {
@@ -34,6 +35,10 @@ export function WorkspaceShell(props: {
   children: ReactNode;
 }) {
   const [creating, setCreating] = useState(false);
+  // Kept with the Workspace it was opened for, so a switch never retargets an open dialog.
+  const [deleting, setDeleting] = useState<WorkspaceItem | undefined>(undefined);
+  const navigate = useNavigate();
+  const current = props.current;
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -76,14 +81,40 @@ export function WorkspaceShell(props: {
             <span className="font-semibold" data-testid="current-workspace">
               {props.current ? props.current.name : "momo"}
             </span>
-            <Link to="/logins" className="text-muted-foreground text-sm hover:underline">
-              ログイン中のブラウザ
-            </Link>
+            <span className="flex items-center gap-3">
+              {current && (
+                <button
+                  type="button"
+                  data-testid="delete-workspace"
+                  onClick={() => setDeleting(current)}
+                  className="text-muted-foreground hover:text-destructive text-sm"
+                >
+                  Workspace を消す
+                </button>
+              )}
+              <Link to="/logins" className="text-muted-foreground text-sm hover:underline">
+                ログイン中のブラウザ
+              </Link>
+            </span>
           </header>
           <main className="flex flex-1">{props.children}</main>
         </div>
       </div>
       {creating && <CreateWorkspaceDialog onClose={() => setCreating(false)} />}
+      {deleting && deleting.id === current?.id && (
+        <DeleteDialog
+          key={deleting.id}
+          title={`Workspace「${deleting.name}」を消す`}
+          preview={() => api.workspaceDeletionPreview(deleting.id)}
+          describe={() => "この Workspace の Bot・会話・発言・記憶・添付ファイルがすべて消えます。"}
+          onDelete={async () => {
+            await api.deleteWorkspace(deleting.id);
+            setDeleting(undefined);
+            await navigate({ to: "/" });
+          }}
+          onClose={() => setDeleting(undefined)}
+        />
+      )}
     </div>
   );
 }

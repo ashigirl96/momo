@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export * from "./bots.ts";
 export * from "./conversations.ts";
+export * from "./deletion.ts";
 export * from "./events.ts";
 export * from "./local.ts";
 export * from "./mailbox.ts";

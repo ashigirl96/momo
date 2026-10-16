@@ -1,5 +1,5 @@
 import type { Db } from "@momo/migrator";
-import { and, asc, desc, eq, lt } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, lt } from "drizzle-orm";
 import { getBot } from "./bots.ts";
 import { decodeCursor, pageLimit, toPage, type Page } from "./paging.ts";
 import { inTenant } from "./scoped.ts";
@@ -108,4 +108,34 @@ export function listConversations(
     .limit(limit + 1)
     .all();
   return toPage(tenant, LIST, rows, limit);
+}
+
+/** Ids of the tenant's Conversations, or only of those the given Bot is the primary Bot of. */
+export function conversationIds(
+  db: Db,
+  tenant: TenantContext,
+  filter: { primaryBotId?: string } = {},
+): string[] {
+  const query = summaries(db, tenant);
+  const rows = (
+    filter.primaryBotId === undefined
+      ? query.where(inTenant(conversations, tenant))
+      : query.where(
+          and(inTenant(conversations, tenant), eq(conversationParticipants.botId, filter.primaryBotId)),
+        )
+  ).all();
+  return rows.map((row) => row.id);
+}
+
+/**
+ * Deletes the tenant's Conversations with these ids and their participants. Rows of other domains
+ * that reference them must be deleted first; their foreign keys refuse otherwise.
+ */
+export function deleteConversations(db: Db, tenant: TenantContext, ids: string[]): number {
+  if (ids.length === 0) return 0;
+  return db
+    .delete(conversations)
+    .where(and(inTenant(conversations, tenant), inArray(conversations.id, ids)))
+    .returning({ id: conversations.id })
+    .all().length;
 }

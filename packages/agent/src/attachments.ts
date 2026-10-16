@@ -254,6 +254,11 @@ export function readAttachment(
   return files.read(tenant, attachment.id);
 }
 
+/** Removes the files of Attachments whose rows a committed deletion took away. */
+export function removeAttachmentFiles(files: AttachmentFiles, tenant: TenantContext, ids: string[]): void {
+  for (const id of ids) files.remove(tenant, id);
+}
+
 /** Removes every Attachment file of the Workspace, for deleting the Workspace. */
 export function removeWorkspaceAttachments(files: AttachmentFiles, tenant: TenantContext): void {
   files.removeWorkspace(tenant);

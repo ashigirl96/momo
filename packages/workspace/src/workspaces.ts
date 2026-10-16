@@ -1,6 +1,8 @@
 import { asc, eq } from "drizzle-orm";
 import type { Db } from "@momo/migrator";
-import { workspaces } from "./schema.ts";
+import { inTenant } from "./scoped.ts";
+import { bots, conversations, workspaces } from "./schema.ts";
+import type { TenantContext } from "./tenant.ts";
 
 export type Workspace = typeof workspaces.$inferSelect;
 
@@ -28,4 +30,16 @@ export function listWorkspaces(db: Db): Workspace[] {
 
 export function findWorkspace(db: Db, id: string): Workspace | undefined {
   return db.select().from(workspaces).where(eq(workspaces.id, id)).get();
+}
+
+/**
+ * Deletes the Workspace with its Conversations and Bots. Other domains' rows of the Workspace must
+ * be deleted first in the same transaction; their foreign keys refuse otherwise.
+ */
+export function deleteWorkspace(db: Db, tenant: TenantContext): void {
+  db.transaction((tx) => {
+    tx.delete(conversations).where(inTenant(conversations, tenant)).run();
+    tx.delete(bots).where(inTenant(bots, tenant)).run();
+    tx.delete(workspaces).where(eq(workspaces.id, tenant.workspaceId)).run();
+  });
 }

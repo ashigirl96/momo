@@ -13,6 +13,7 @@ import { BotAvatar } from "@/bot-avatar";
 import { BotSettingsCard, SaveDiscard, type CardSettings, type CardStatus } from "@/bot-settings-card";
 import { BotBubble, ChatFrame, Composer, HumanBubble, useAlive } from "@/chat-parts";
 import { ConversationView } from "@/conversation-view";
+import { DeleteDialog } from "@/delete-dialog";
 import { cn } from "@/lib/utils";
 import { MemoryList } from "@/memory-list";
 
@@ -56,6 +57,11 @@ export function BotsPane({ workspace }: { workspace: WorkspaceItem }) {
     startConversation(bot);
   };
   const changed = (bot: BotItem) => setBots((list) => list?.map((b) => (b.id === bot.id ? bot : b)));
+  const deleted = (botId: string) => {
+    setBots((list) => list?.filter((b) => b.id !== botId));
+    setConversations((list) => list?.filter((c) => c.primaryBotId !== botId));
+    setSelection({ kind: "none" });
+  };
 
   const botOf = (id: string) => bots?.find((b) => b.id === id);
   const selected =
@@ -136,6 +142,7 @@ export function BotsPane({ workspace }: { workspace: WorkspaceItem }) {
             workspace={workspace}
             bot={selectedBot}
             onChanged={changed}
+            onDeleted={() => deleted(selectedBot.id)}
             onBack={() => setSelection({ kind: "conversation", id: selection.from })}
             onOpenConversation={(id) => setSelection({ kind: "conversation", id })}
           />
@@ -264,7 +271,9 @@ function BotSettingsView(props: {
   onChanged: (bot: BotItem) => void;
   onBack: () => void;
   onOpenConversation: (id: string) => void;
+  onDeleted: () => void;
 }) {
+  const [deleting, setDeleting] = useState(false);
   const [settings, setSettings] = useState<CardSettings>({ model: props.bot.model, tools: props.bot.tools });
   const [instructions, setInstructions] = useState(props.bot.instructions);
   const [renewed, setRenewed] = useState<number | undefined>(undefined);
@@ -306,9 +315,23 @@ function BotSettingsView(props: {
     <ChatFrame
       title={props.bot.name}
       actions={
-        <button type="button" onClick={props.onBack} className="hover:bg-muted rounded-md px-2 py-1 text-xs">
-          会話に戻る
-        </button>
+        <>
+          <button
+            type="button"
+            data-testid="delete-bot"
+            onClick={() => setDeleting(true)}
+            className="hover:bg-muted hover:text-destructive rounded-md px-2 py-1 text-xs"
+          >
+            Bot を消す
+          </button>
+          <button
+            type="button"
+            onClick={props.onBack}
+            className="hover:bg-muted rounded-md px-2 py-1 text-xs"
+          >
+            会話に戻る
+          </button>
+        </>
       }
     >
       <BotSettingsCard
@@ -327,6 +350,18 @@ function BotSettingsView(props: {
       />
       {failed && <p className="text-destructive text-sm">保存できませんでした。</p>}
       <MemoryList workspace={props.workspace} bot={props.bot} onOpenConversation={props.onOpenConversation} />
+      {deleting && (
+        <DeleteDialog
+          title={`「${props.bot.name}」を消す`}
+          preview={() => api.botDeletionPreview(props.workspace.id, props.bot.id)}
+          describe={() => "この Bot が担当する会話とその発言・添付ファイル、この Bot の記憶が消えます。"}
+          onDelete={async () => {
+            await api.deleteBot(props.workspace.id, props.bot.id);
+            if (alive.current) props.onDeleted();
+          }}
+          onClose={() => setDeleting(false)}
+        />
+      )}
     </ChatFrame>
   );
 }

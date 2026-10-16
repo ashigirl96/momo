@@ -7,7 +7,9 @@ export const migrations: MigrationSource = {
 };
 
 export {
+  deleteBotMemory,
   deleteMemoryItem,
+  deleteWorkspaceMemory,
   detachMemoryFromConversation,
   getMemoryItem,
   listMemoryItems,

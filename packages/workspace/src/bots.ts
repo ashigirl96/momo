@@ -87,3 +87,14 @@ export function updateBot(db: Db, tenant: TenantContext, id: string, patch: BotP
     .returning()
     .get();
 }
+
+/** Deletes the Bot; its Conversations and other domains' rows that reference it must go first. */
+export function deleteBot(db: Db, tenant: TenantContext, id: string): boolean {
+  return (
+    db
+      .delete(bots)
+      .where(and(inTenant(bots, tenant), eq(bots.id, id)))
+      .returning({ id: bots.id })
+      .all().length > 0
+  );
+}
