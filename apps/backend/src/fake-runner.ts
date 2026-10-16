@@ -1,7 +1,4 @@
-/**
- * The runner of P2. It lives in the backend's process and answers by fixed rules, but speaks only
- * the mailbox messages of ADR-0009, so P3 can put the sandbox runner in its place.
- */
+/** Speaks only the ADR-0009 mailbox messages, so another runner can take its place. */
 import {
   RunnerInbound,
   type RunInputMessage,
@@ -17,7 +14,6 @@ function proposedName(purpose: string): string {
   return "アシスタント Bot";
 }
 
-/** A new Bot proposes its own name and instructions from what the owner said it is for. */
 export function proposeBotSettings(purpose: string): RunnerOutbound[] {
   const text = purpose.trim();
   return [
@@ -32,7 +28,7 @@ export function proposeBotSettings(purpose: string): RunnerOutbound[] {
   ];
 }
 
-/** What the fake runner answers; Markdown, so the UI's sanitized rendering is exercised. */
+/** Markdown, so the UI's sanitized rendering is exercised. */
 export function fakeReply(input: string, history: RunInputMessage[]): string {
   const count = history.filter((m) => m.author === "owner").length + 1;
   return `**${count} 件目**の発言を受け取りました: ${input}`;

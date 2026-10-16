@@ -115,10 +115,7 @@ function verifyHistory(history: Map<string, HistoryRow>, migrations: Migration[]
   }
 }
 
-/**
- * Applies every pending migration of the given domains, one transaction each,
- * and throws a MigrationError when the database must not be used.
- */
+/** One transaction per migration; throws MigrationError when the database must not be used. */
 export function migrate(db: Database, sources: MigrationSource[]): { applied: MigrationRef[] } {
   const migrations = loadMigrations(sources);
   ensureHistoryTable(db);

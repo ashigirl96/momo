@@ -23,7 +23,6 @@ export function createWorkspace(db: Db, input: { name: string; now: Date }): Wor
     .get();
 }
 
-/** Every Workspace of the owner, oldest first, as the tiles show them. */
 export function listWorkspaces(db: Db): Workspace[] {
   return db.select().from(workspaces).orderBy(asc(workspaces.id)).all();
 }
@@ -32,10 +31,7 @@ export function findWorkspace(db: Db, id: string): Workspace | undefined {
   return db.select().from(workspaces).where(eq(workspaces.id, id)).get();
 }
 
-/**
- * Deletes the Workspace with its Conversations and Bots. Other domains' rows of the Workspace must
- * be deleted first in the same transaction; their foreign keys refuse otherwise.
- */
+/** Other domains' rows of the Workspace must be deleted first in the same transaction. */
 export function deleteWorkspace(db: Db, tenant: TenantContext): void {
   db.transaction((tx) => {
     tx.delete(conversations).where(inTenant(conversations, tenant)).run();

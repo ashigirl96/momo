@@ -16,14 +16,12 @@ import { PairingTokens } from "./pairing.ts";
 
 export type BackendOptions = {
   dataDir: string;
-  /** 0 picks a free port, for tests. */
+  /** 0 picks a free port. */
   port: number;
   socketPath?: string;
   probes?: HostProbes;
   now?: () => Date;
-  /** Pause between the fake runner's stream deltas. */
   fakeRunnerDelayMs?: number;
-  /** How often an open SSE stream re-checks its Login and Workspace. */
   streamCheckMs?: number;
 };
 
@@ -33,7 +31,7 @@ export type Backend = {
   origin: string;
   socketPath: string;
   warnings: Warning[];
-  /** Settles when the data dir is out of Time Machine, or the attempt failed. */
+  /** Also settles when the exclusion failed. */
   timeMachineExcluded: Promise<void>;
   stop(): Promise<void>;
 };
@@ -41,10 +39,7 @@ export type Backend = {
 let web: Promise<Map<string, WebAsset>> | undefined;
 const webAssets = () => (web ??= buildWeb());
 
-/**
- * Starts the backend, or throws without listening when app.db cannot be used
- * (MigrationError) or the port is taken (PortInUseError).
- */
+/** Throws without listening when app.db cannot be used or the port is taken. */
 export async function startBackend(options: BackendOptions): Promise<Backend> {
   const now = options.now ?? (() => new Date());
   const socketPath = options.socketPath ?? pairingSocketPath(options.dataDir);
@@ -72,7 +67,7 @@ export async function startBackend(options: BackendOptions): Promise<Backend> {
     });
     runs.recover();
     const attachments = new AttachmentFiles(join(options.dataDir, "attachments"));
-    // Before listening, so no upload is between writing its file and committing its row.
+    // Before listening, so no request is between writing an Attachment file and committing its row.
     sweepAttachmentFiles(db, attachments);
     const assets = await webAssets();
     const pairing = new PairingTokens(now);

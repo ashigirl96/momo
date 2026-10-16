@@ -54,7 +54,6 @@ function tenantNamed(name: string): TenantContext {
   })!;
 }
 
-/** Starts a Run of `bot` in a new Conversation, as a memory tool request would arrive inside it. */
 function runningRun(tenant: TenantContext, bot: Bot): Run {
   const conversation = createConversation(db(), tenant, { primaryBotId: bot.id, now })!;
   const { run } = postOwnerMessage(db(), tenant, { conversationId: conversation.id, text: "覚えて", now })!;

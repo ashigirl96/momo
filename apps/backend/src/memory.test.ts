@@ -43,7 +43,6 @@ async function conversation(ws: string, botId: string) {
   return (await created(res, ConversationItem)).id;
 }
 
-/** Sends a message and returns the Bot's reply once its Run has finished. */
 async function say(ws: string, conversationId: string, text: string): Promise<string> {
   const base = `${ws}/conversations/${conversationId}`;
   const { run } = await created(

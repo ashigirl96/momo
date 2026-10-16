@@ -4,10 +4,7 @@ import { useAlive } from "@/message-parts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-/**
- * Asks before a deletion that cannot be undone, with the number of Conversations it takes.
- * The delete button stays off until that number has loaded.
- */
+/** The delete button stays off until the number of Conversations it takes has loaded. */
 export function DeleteDialog(props: {
   title: string;
   preview: () => Promise<DeletionPreview>;

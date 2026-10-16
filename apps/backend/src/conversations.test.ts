@@ -58,7 +58,6 @@ async function say(cookie: string, base: string, text: string): Promise<PostMess
   return PostMessageResponse.parse(await res.json());
 }
 
-/** Reads SSE frames until `until` matches one, or the server ends the stream. */
 async function frames(
   res: Response,
   until: (frame: Frame) => boolean = () => false,
@@ -404,7 +403,6 @@ async function reset(cookie: string, base: string) {
 
 const LONG = "とても長い返事をください。".repeat(5);
 
-/** The Conversation's events from the start until `until` matches, on a fresh stream. */
 async function eventsUntil(cookie: string, base: string, until: (frame: Frame) => boolean) {
   const stream = await b.call(`${base}/events?after=0`, { cookie });
   return (await frames(stream, until)).frames.map((f) => f.event);

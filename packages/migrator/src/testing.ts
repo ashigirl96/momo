@@ -8,14 +8,10 @@ import { migrate, type MigrationSource } from "./index.ts";
 export type TestDatabase = {
   sqlite: Database;
   path: string;
-  /** Closes and reopens the file, as a backend restart would. */
   reopen(): Database;
   close(): void;
 };
 
-/**
- * A temporary app.db with the real migrations of the given domains applied.
- */
 export function migratedTestDatabase(sources: MigrationSource[]): TestDatabase {
   const dir = mkdtempSync(join(tmpdir(), "momo-test-db-"));
   const path = join(dir, "app.db");

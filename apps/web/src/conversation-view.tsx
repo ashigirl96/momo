@@ -30,11 +30,7 @@ function parseJson(text: string): unknown {
   }
 }
 
-/**
- * Loads the history, then follows the Conversation's SSE stream from where the history ends.
- * Everything is dropped when the Workspace or Conversation changes, so a late answer from the
- * previous one never lands here.
- */
+/** Everything is dropped when the Workspace or Conversation changes, so a late answer from the previous one never lands here. */
 function useConversation(workspaceId: string, conversationId: string) {
   const [state, setState] = useState<ConversationState | undefined>(undefined);
   const [failed, setFailed] = useState(false);

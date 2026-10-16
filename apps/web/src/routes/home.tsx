@@ -15,7 +15,7 @@ type Shell =
       current: WorkspaceItem | "missing" | undefined;
     };
 
-/** Loads the shell for one Workspace; a response for a Workspace the page left is dropped. */
+/** A response for a Workspace the page already left is dropped. */
 function useShell(workspaceId: string | undefined): Shell {
   const [shell, setShell] = useState<Shell>({ kind: "loading" });
 

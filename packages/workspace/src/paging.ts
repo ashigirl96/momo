@@ -16,7 +16,7 @@ export function encodeCursor(tenant: TenantContext, list: string, afterId: strin
   return Buffer.from(JSON.stringify(body)).toString("base64url");
 }
 
-/** Returns the id to continue after, or throws InvalidCursor for a cursor of another scope. */
+/** Throws InvalidCursor for a cursor of another Workspace or list. */
 export function decodeCursor(tenant: TenantContext, list: string, cursor: string): string {
   let body: Partial<CursorBody>;
   try {
@@ -30,13 +30,12 @@ export function decodeCursor(tenant: TenantContext, list: string, cursor: string
   return body.a;
 }
 
-/** Clamps a requested page size into 1..PAGE_LIMIT_MAX. */
 export function pageLimit(requested: number | undefined): number {
   if (requested === undefined || !Number.isInteger(requested)) return PAGE_LIMIT_MAX;
   return Math.min(Math.max(requested, 1), PAGE_LIMIT_MAX);
 }
 
-/** Cuts rows fetched with `limit + 1` into a page; rows must be ordered by id. */
+/** Rows must be fetched with `limit + 1` and ordered by id. */
 export function toPage<T extends { id: string }>(
   tenant: TenantContext,
   list: string,

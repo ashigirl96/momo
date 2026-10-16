@@ -8,7 +8,7 @@ import { memoryItems, type MemoryWriter } from "./schema.ts";
 
 export type MemoryRow = typeof memoryItems.$inferSelect;
 
-/** A Memory item with who wrote it, resolved to the Conversation of each Run while it exists. */
+/** Provenance resolves to each Run's Conversation while it exists. */
 export type MemoryRecord = MemoryRow & { created: MemoryProvenance; updated: MemoryProvenance };
 
 const SEARCH_LIMIT = 20;
@@ -18,10 +18,7 @@ const TRIGRAM = 3;
 
 const listName = (botId: string) => `memory_items:${botId}`;
 
-/**
- * Writes a Memory item for the Bot of a Run that is running in the tenant. The Bot, the Run and
- * the writer come from that Run, never from the tool's arguments.
- */
+/** The Bot, the Run and the writer come from the Run, never from the tool's arguments. */
 export function writeMemoryItem(
   db: Db,
   tenant: TenantContext,
@@ -68,7 +65,6 @@ export function getMemoryItem(
   return withProvenance(db, tenant, and(eq(memoryItems.botId, botId), eq(memoryItems.id, id)))[0];
 }
 
-/** A Bot's Memory items, newest first. */
 export function listMemoryItems(
   db: Db,
   tenant: TenantContext,
@@ -113,7 +109,7 @@ export function fullTextCandidates(db: Db, tenant: TenantContext, botId: string,
   return db.all<{ item_id: string }>(candidateIds(tenant, botId, terms)).map((row) => row.item_id);
 }
 
-/** Full-text search over one Bot's Memory items; every term must match. */
+/** Every term must match. */
 export function searchMemoryItems(db: Db, tenant: TenantContext, botId: string, query: string): MemoryRow[] {
   const terms = [...new Set(query.trim().split(/\s+/).filter(Boolean))].slice(0, SEARCH_TERMS_MAX);
   if (terms.length === 0) return [];
@@ -141,7 +137,6 @@ export function deleteMemoryItem(db: Db, tenant: TenantContext, botId: string, i
   return deleted.length > 0;
 }
 
-/** Deletes every Memory item of the Bot, for deleting the Bot; the index rows go with them. */
 export function deleteBotMemory(db: Db, tenant: TenantContext, botId: string): number {
   return db
     .delete(memoryItems)
@@ -150,17 +145,12 @@ export function deleteBotMemory(db: Db, tenant: TenantContext, botId: string): n
     .all().length;
 }
 
-/** Deletes every Memory item of the Workspace, for deleting the Workspace. */
 export function deleteWorkspaceMemory(db: Db, tenant: TenantContext): number {
   return db.delete(memoryItems).where(inTenant(memoryItems, tenant)).returning({ id: memoryItems.id }).all()
     .length;
 }
 
-/**
- * Empties the Run references into a Conversation that is about to be deleted, so the items stay
- * with their Bot and show a deleted Conversation as their source. The Conversation's deletion
- * calls this in its transaction before it deletes the Runs. Returns how many items changed.
- */
+/** Runs in the Conversation's deletion transaction before its Runs go, so the items stay with their Bot. */
 export function detachMemoryFromConversation(db: Db, tenant: TenantContext, conversationId: string): number {
   return db.transaction((tx) => {
     const runIds = tx

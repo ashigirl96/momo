@@ -39,7 +39,6 @@ export function getBot(db: Db, tenant: TenantContext, id: string): Bot | undefin
     .get();
 }
 
-/** The Workspace's Bots, newest first, as the conversation list shows them. */
 export function listBots(
   db: Db,
   tenant: TenantContext,
@@ -57,10 +56,7 @@ export function listBots(
   return toPage(tenant, LIST, rows, limit);
 }
 
-/**
- * Sets the instructions and bumps their version when the text differs. Changing them must close
- * the Bot's open Sessions in the same transaction, so callers go through agent's `updateBotSettings`.
- */
+/** Callers go through agent's `updateBotSettings`, which closes the Bot's open Sessions in the same transaction. */
 export function replaceBotInstructions(
   db: Db,
   tenant: TenantContext,
@@ -88,7 +84,7 @@ export function updateBot(db: Db, tenant: TenantContext, id: string, patch: BotP
     .get();
 }
 
-/** Deletes the Bot; its Conversations and other domains' rows that reference it must go first. */
+/** Its Conversations and other domains' rows that reference it must go first. */
 export function deleteBot(db: Db, tenant: TenantContext, id: string): boolean {
   return (
     db

@@ -7,7 +7,6 @@ import type { TenantRequest } from "./workspaces.ts";
 
 const MEMORY = /^\/bots\/([^/]+)\/memory(?:\/([^/]+))?$/;
 
-/** Routes `/api/workspaces/:workspaceId/bots/:botId/memory…`; undefined means the path is not one of ours. */
 export function memoryRoute({ req, rest, tenant }: TenantRequest, ctx: RouteContext): Response | undefined {
   const match = MEMORY.exec(rest);
   if (!match) return undefined;

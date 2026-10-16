@@ -56,7 +56,6 @@ afterEach(() => {
 const post = (text: string, tenant = a, conversation = convA) =>
   postOwnerMessage(db(), tenant, { conversationId: conversation.id, text, now })!;
 
-/** Runs the queued Run to completion with the given reply. */
 function reply(tenant: TenantContext, sessionId: string, text: string) {
   const started = startNextRun(db(), tenant, sessionId, now)!;
   appendRunDelta(db(), tenant, started.run.id, text, now);

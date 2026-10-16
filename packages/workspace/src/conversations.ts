@@ -19,7 +19,6 @@ export type Conversation = ConversationSummary & { participants: Participant[] }
 
 const LIST = "conversations";
 
-/** Starts a Conversation with a Bot of the same Workspace as its primary Bot. */
 export function createConversation(
   db: Db,
   tenant: TenantContext,
@@ -92,7 +91,6 @@ export function getConversation(db: Db, tenant: TenantContext, id: string): Conv
   return { ...summary, participants };
 }
 
-/** The Workspace's Conversations, newest first, as the conversation list shows them. */
 export function listConversations(
   db: Db,
   tenant: TenantContext,
@@ -110,7 +108,6 @@ export function listConversations(
   return toPage(tenant, LIST, rows, limit);
 }
 
-/** Ids of the tenant's Conversations, or only of those the given Bot is the primary Bot of. */
 export function conversationIds(
   db: Db,
   tenant: TenantContext,
@@ -127,10 +124,7 @@ export function conversationIds(
   return rows.map((row) => row.id);
 }
 
-/**
- * Deletes the tenant's Conversations with these ids and their participants. Rows of other domains
- * that reference them must be deleted first; their foreign keys refuse otherwise.
- */
+/** Other domains' rows that reference them must go first; their foreign keys refuse otherwise. */
 export function deleteConversations(db: Db, tenant: TenantContext, ids: string[]): number {
   if (ids.length === 0) return 0;
   return db

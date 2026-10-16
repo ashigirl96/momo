@@ -50,10 +50,7 @@ function openSessionOf(
     .get();
 }
 
-/**
- * The open Session of the Bot in the Conversation, opened now with the Bot's current instruction
- * version if there is none. Callers check that the Bot takes part in the tenant's Conversation.
- */
+/** Callers check that the Bot takes part in the tenant's Conversation. */
 export function openSession(
   db: Db,
   tenant: TenantContext,
@@ -85,7 +82,6 @@ export function getSession(db: Db, tenant: TenantContext, id: string): Session |
     .get();
 }
 
-/** The Conversation's Sessions, oldest first; empty for a Conversation outside the tenant. */
 export function listSessions(db: Db, tenant: TenantContext, conversationId: string): Session[] {
   return db
     .select()
@@ -97,7 +93,6 @@ export function listSessions(db: Db, tenant: TenantContext, conversationId: stri
 
 export type ClosedSessions = { closed: Session[]; cancelledRunning: string[] };
 
-/** Cancels the Session's unfinished Runs, closes it and tells the Conversation. */
 function closeSession(
   db: Db,
   tenant: TenantContext,
@@ -120,10 +115,6 @@ function closeSession(
   return { closed, cancelledRunning };
 }
 
-/**
- * The owner resets the primary Bot's Session: its unfinished Runs are cancelled and it closes, and
- * the next message opens a new one. Undefined when the Conversation is not the tenant's.
- */
 export function resetSession(
   db: Db,
   tenant: TenantContext,
@@ -138,10 +129,7 @@ export function resetSession(
   });
 }
 
-/**
- * Saves a Bot's settings. New instructions bump their version and close the Bot's open Sessions in
- * every Conversation in the same transaction, so no Run goes on with the old instructions (#8).
- */
+/** Closing the Bot's open Sessions in the same transaction means no Run goes on with the old instructions. */
 export function updateBotSettings(
   db: Db,
   tenant: TenantContext,

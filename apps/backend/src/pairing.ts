@@ -4,9 +4,7 @@ export const PAIRING_TTL_MS = 60_000;
 
 const hash = (token: string) => createHash("sha256").update(token).digest("hex");
 
-/**
- * One-time tokens handed to `momo open`; they live only in this process.
- */
+/** One-time tokens handed to `momo open`; they live only in this process. */
 export class PairingTokens {
   private readonly expiries = new Map<string, number>();
 

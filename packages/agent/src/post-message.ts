@@ -6,11 +6,7 @@ import { insertMessage, toMessageItem, type Message } from "./messages.ts";
 import { queueRun, type Run } from "./runs.ts";
 import { openSession } from "./sessions.ts";
 
-/**
- * The owner speaks in a Conversation: the message, its Attachments, the primary Bot's Session and
- * a queued Run are written in one transaction, or nothing is when the Conversation is not the
- * tenant's. Attachment files written before a failure are removed again.
- */
+/** One transaction writes everything, and Attachment files written before a failure are removed again. */
 export function postOwnerMessage(
   db: Db,
   tenant: TenantContext,

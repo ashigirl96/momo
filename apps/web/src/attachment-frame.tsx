@@ -6,10 +6,7 @@ function size(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
-/**
- * Shows an Attachment in a frame with every sandbox permission off, so its document has an opaque
- * origin and runs no script; the response's own `CSP: sandbox` holds even outside this frame.
- */
+/** Every sandbox permission is off, so the document has an opaque origin and runs no script. */
 export function AttachmentFrame({ attachment, src }: { attachment: AttachmentItem; src: string }) {
   return (
     <figure

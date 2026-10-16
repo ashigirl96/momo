@@ -95,7 +95,6 @@ const post = (newAttachments: NewAttachment[], tenant = a, conv = convA) =>
 
 const mode = (path: string) => statSync(path).mode & 0o777;
 
-/** Every path under the data dir, so a test can show nothing landed outside the expected file. */
 function tree(dir = dataDir): string[] {
   return readdirSync(dir, { recursive: true, encoding: "utf8" }).toSorted();
 }

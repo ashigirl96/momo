@@ -4,5 +4,5 @@ import { migrations as memory } from "@momo/memory";
 import type { MigrationSource } from "@momo/migrator";
 import { migrations as workspace } from "@momo/workspace";
 
-/** Every domain whose migrations go into app.db. A domain name never changes once released. */
+/** A domain name never changes once released, because applied migrations are keyed on it. */
 export const appDbDomains: MigrationSource[] = [workspace, agent, memory, connections];

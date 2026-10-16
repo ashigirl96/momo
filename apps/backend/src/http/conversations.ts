@@ -40,7 +40,6 @@ function toConversationItem(c: ConversationSummary): ConversationItem {
   return { id: c.id, primaryBotId: c.primaryBotId, createdAt: c.createdAt.getTime() };
 }
 
-/** Routes `/api/workspaces/:workspaceId/{conversations,runs}…`; undefined means not one of ours. */
 export async function conversationRoute(
   request: TenantRequest,
   ctx: RouteContext,

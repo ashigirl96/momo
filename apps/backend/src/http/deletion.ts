@@ -13,17 +13,12 @@ import type { TenantRequest } from "./workspaces.ts";
 
 const BOT = /^\/bots\/([^/]+)(\/deletion-preview)?$/;
 
-/** Stops the runner on the deleted Runs and wakes the deleted Conversations' streams to close. */
 function settle(ctx: RouteContext, tenant: TenantContext, deletion: Deletion): Response {
   ctx.runs.stopCancelled(deletion.runningRunIds);
   for (const id of deletion.conversationIds) ctx.hub.notify(tenant.workspaceId, id);
   return noContent();
 }
 
-/**
- * Routes `DELETE /api/workspaces/:id`, `DELETE …/bots/:botId` and their `GET …/deletion-preview`;
- * undefined means the path is not one of ours.
- */
 export function deletionRoute({ req, rest, tenant }: TenantRequest, ctx: RouteContext): Response | undefined {
   if (rest === "" && req.method === "DELETE")
     return settle(ctx, tenant, deleteWorkspaceEverywhere(ctx.db, ctx.attachments, tenant));

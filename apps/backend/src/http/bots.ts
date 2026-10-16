@@ -39,7 +39,6 @@ function proposalFrom(messages: unknown[]): BotSettingsProposal | undefined {
   return undefined;
 }
 
-/** Routes `/api/workspaces/:workspaceId/bots…`; undefined means the path is not one of ours. */
 export async function botRoute(
   { req, rest, tenant, body }: TenantRequest,
   ctx: RouteContext,

@@ -6,11 +6,11 @@ export const BOT_NAME_MAX = 50;
 export const BOT_INSTRUCTIONS_MAX = 4000;
 export const BOT_PURPOSE_MAX = 500;
 
-/** The model a Bot asks for. Stored and shown only; the fake runner does not read it. */
+/** Stored and shown only; the fake runner does not read it. */
 export const BotModel = z.enum(["sonnet", "opus", "haiku"]);
 export type BotModel = z.infer<typeof BotModel>;
 
-/** The momo tools a Bot may use. Stored and shown only; the fake runner does not read it. */
+/** Stored and shown only; the fake runner does not read it. */
 export const BotTool = z.enum(["memory"]);
 export type BotTool = z.infer<typeof BotTool>;
 
@@ -25,7 +25,6 @@ export const BotItem = z.strictObject({
   id: z.string(),
   name: z.string(),
   instructions: z.string(),
-  /** Grows by one each time the instructions change. */
   instructionsVersion: z.int().positive(),
   model: BotModel,
   tools: z.array(BotTool),
@@ -61,23 +60,17 @@ export type UpdateBotRequest = z.input<typeof UpdateBotRequest>;
 
 export const UpdateBotResponse = z.strictObject({
   bot: BotItem,
-  /** The instructions changed, so the Bot's Conversations go on in new Sessions. */
   sessionsRenewed: z.boolean(),
-  /** How many open Sessions closed because of it. */
   closedSessions: z.int().nonnegative(),
 });
 export type UpdateBotResponse = z.infer<typeof UpdateBotResponse>;
 
-/** What the owner tells a new Bot it is for. */
 export const ProposeBotRequest = z.strictObject({
   purpose: z.string().trim().min(1).max(BOT_PURPOSE_MAX),
 });
 export type ProposeBotRequest = z.input<typeof ProposeBotRequest>;
 
-/**
- * The name and instructions a Bot proposes for itself. The "Bot の設定" card draws these fields
- * next to momo's own labels; no other Bot text goes into the card.
- */
+/** The card draws only these Bot-written fields next to momo's own labels. */
 export const BotSettingsProposal = z.strictObject({
   name: BotName,
   instructions: BotInstructions,

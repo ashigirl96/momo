@@ -40,13 +40,9 @@ export const macProbes: HostProbes = {
 export type DataDir = {
   /** Live list: a failed Time Machine exclusion is added when tmutil finishes. */
   warnings: Warning[];
-  /** Settles once the Time Machine exclusion is in place or has failed. */
   excluded: Promise<void>;
 };
 
-/**
- * Creates the data dir owner-only, keeps it out of Time Machine, and reports what the owner must know.
- */
 export async function prepareDataDir(dir: string, probes: HostProbes): Promise<DataDir> {
   mkdirSync(dir, { recursive: true, mode: 0o700 });
   chmodSync(dir, 0o700);

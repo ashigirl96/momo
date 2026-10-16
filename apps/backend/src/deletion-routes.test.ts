@@ -99,7 +99,6 @@ function attachmentFiles(workspaceId: string): string[] {
   return existsSync(dir) ? readdirSync(dir) : [];
 }
 
-/** Counts the needle in app.db and its WAL after a checkpoint from a second connection. */
 function scanAppDb(needle: string): number {
   const path = join(b.dataDir, "app.db");
   const other = new Database(path);

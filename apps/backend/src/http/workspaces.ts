@@ -41,7 +41,6 @@ function toWorkspaceItem(workspace: Workspace): WorkspaceItem {
   return { id: workspace.id, name: workspace.name, createdAt: workspace.createdAt.getTime() };
 }
 
-/** Routes the Workspace API; undefined means the path is not one of ours. */
 export async function workspaceRoute(
   { req, server, path, login, stillLoggedIn, body }: AuthedRequest,
   ctx: RouteContext,

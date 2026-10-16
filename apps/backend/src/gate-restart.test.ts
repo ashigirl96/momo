@@ -29,7 +29,7 @@ async function start() {
   return buildGateFixture(api);
 }
 
-/** Every event id of the Conversation so far; nothing is running, so the log ends at streamAfter. */
+/** Nothing is running, so the log ends at streamAfter. */
 async function eventIds(c: GateConversation): Promise<number[]> {
   const last = (await api.ok(`${c.base}/messages`, MessagePage)).streamAfter;
   const res = await api.call(`${c.base}/events?after=0`);

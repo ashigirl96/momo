@@ -8,7 +8,7 @@ export type StoredEvent = { id: number; event: ConversationEvent };
 
 export const EVENT_PAGE_MAX = 500;
 
-/** Appends to the Conversation's event log; callers check the Conversation is in the tenant first. */
+/** Callers check the Conversation is in the tenant first. */
 export function appendEvent(
   db: Db,
   tenant: TenantContext,
@@ -27,7 +27,6 @@ export function appendEvent(
     .get().id;
 }
 
-/** The Conversation's events after `afterId`, oldest first. Another scope's ids are never returned. */
 export function eventsAfter(
   db: Db,
   tenant: TenantContext,
@@ -50,10 +49,7 @@ export function eventsAfter(
     .all();
 }
 
-/**
- * Where a client that just read the history subscribes from: before the first event of the oldest
- * unfinished Run, so the Run's stream replays, or else after the Conversation's last event.
- */
+/** Before the first event of the oldest unfinished Run, so a reload replays that Run's stream. */
 export function streamAfter(db: Db, tenant: TenantContext, conversationId: string): number {
   const scope = and(
     inTenant(conversationEvents, tenant),

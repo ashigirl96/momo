@@ -47,7 +47,6 @@ async function readMultipart(req: Request): Promise<PostedMessage | string> {
   return { text: trimmed, newAttachments };
 }
 
-/** Reads `POST …/messages`: JSON `{ text }`, or a multipart body with text and files. */
 export async function readPostedMessage(
   req: Request,
   body: () => Promise<unknown>,
@@ -66,10 +65,7 @@ function encodeFilename(name: string): string {
   return encodeURIComponent(name).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 }
 
-/**
- * The Attachment's bytes, for a sandboxed frame of the momo UI only. The CSP `sandbox` directive
- * gives the document an opaque origin without scripts even when it is opened outside that frame.
- */
+/** The CSP `sandbox` directive keeps the document's origin opaque and script-free even outside the momo UI's frame. */
 export function attachmentResponse(
   files: AttachmentFiles,
   tenant: TenantContext,

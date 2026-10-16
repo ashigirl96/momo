@@ -2,10 +2,7 @@ import type { TenantContext } from "@momo/workspace";
 
 type Listener = () => void;
 
-/**
- * Wakes the SSE streams of a Conversation after its event log grew. It carries no event data:
- * each stream reads the log itself with its own TenantContext, so a wake-up cannot leak events.
- */
+/** Carries no event data, so each stream re-reads the log with its own TenantContext and a wake-up cannot leak events. */
 export class ConversationHub {
   readonly #listeners = new Map<string, Set<Listener>>();
   readonly #closers = new Set<Listener>();
@@ -32,7 +29,6 @@ export class ConversationHub {
     for (const listener of this.#listeners.get(`${workspaceId}/${conversationId}`) ?? []) listener();
   }
 
-  /** Ends every open stream, as the backend stops. */
   closeAll(): void {
     const closers = Array.from(this.#closers);
     for (const close of closers) close();

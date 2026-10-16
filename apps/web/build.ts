@@ -6,11 +6,7 @@ export type WebAsset = {
   contentType: string;
 };
 
-/**
- * Bundles the UI in memory, keyed by the absolute URL path each file is served at.
- * Served from the backend's own handler, because HTML-import routes in Bun.serve
- * bypass the handler and so skip the Host check and the security headers.
- */
+/** Served from the backend's own handler, because Bun.serve HTML-import routes skip the Host check and the security headers. */
 export async function buildWeb(): Promise<Map<string, WebAsset>> {
   const result = await Bun.build({
     entrypoints: [fileURLToPath(new URL("./index.html", import.meta.url))],

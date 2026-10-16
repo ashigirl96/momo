@@ -7,15 +7,10 @@ import { attachments, conversationEvents, messages, runs, sessions } from "./sch
 export type DeletedConversationRecords = {
   /** Their files are still on disk; remove them once the transaction has committed. */
   attachmentIds: string[];
-  /** Runs the runner may still be working on. */
   runningRunIds: string[];
 };
 
-/**
- * Deletes the agent rows of the tenant's Conversations with these ids, for deleting them. Runs and
- * messages reference each other, so Bot messages go before Runs and owner messages after them.
- * Memory items must already be detached from the Runs.
- */
+/** Bot messages go before Runs and owner messages after them because they reference each other; Memory items must already be detached from the Runs. */
 export function deleteConversationRecords(
   db: Db,
   tenant: TenantContext,

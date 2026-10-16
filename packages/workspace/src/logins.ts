@@ -38,10 +38,7 @@ export function createLogin(
   return { login: summary(row), token };
 }
 
-/**
- * Resolves a cookie token to its live Login and slides the expiry forward.
- * `renewed` tells the caller to send the cookie again with a fresh Max-Age.
- */
+/** `renewed` tells the caller to send the cookie again with a fresh Max-Age. */
 export function authenticateLogin(
   db: Db,
   token: string,

@@ -12,11 +12,7 @@ function parseEventId(value: string | null): number | undefined | "invalid" {
   return Number(value);
 }
 
-/**
- * The Conversation's SSE stream. It starts after `Last-Event-ID` (a browser's resume) or `?after=`
- * (the first connect), reads only this tenant's Conversation from the event log, and re-checks the
- * Login and Workspace before every batch it sends and every `streamCheckMs` while open.
- */
+/** Re-checks the Login and Workspace before every batch and every `streamCheckMs`, so a revoked Login or deleted Workspace gets nothing more. */
 export function conversationEvents(
   { req, server, tenant, reauthorize }: TenantRequest,
   conversationId: string,

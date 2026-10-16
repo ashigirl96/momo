@@ -26,7 +26,6 @@ export function previewWorkspaceDeletion(db: Db, tenant: TenantContext): Deletio
   return { conversations: conversationIds(db, tenant).length };
 }
 
-/** undefined when the Bot is not the tenant's. */
 export function previewBotDeletion(
   db: Db,
   tenant: TenantContext,
@@ -36,11 +35,7 @@ export function previewBotDeletion(
   return { conversations: conversationIds(db, tenant, { primaryBotId: botId }).length };
 }
 
-/**
- * Deletes the Workspace from every domain in one transaction, in reverse reference order:
- * memory, then agent, then workspace. Attachment files are removed only after the commit, so a
- * failed transaction leaves both rows and files in place.
- */
+/** Attachment files go only after the commit, so a failed transaction leaves both rows and files in place. */
 export function deleteWorkspaceEverywhere(db: Db, files: AttachmentFiles, tenant: TenantContext): Deletion {
   const deletion = db.transaction((tx) => {
     const ids = conversationIds(tx, tenant);
@@ -53,11 +48,6 @@ export function deleteWorkspaceEverywhere(db: Db, files: AttachmentFiles, tenant
   return deletion;
 }
 
-/**
- * Deletes the Bot, its Memory items and the Conversations it is the primary Bot of, with their
- * Sessions, Runs, messages and Attachments, in one transaction. undefined when the Bot is not the
- * tenant's; nothing is deleted then.
- */
 export function deleteBotEverywhere(
   db: Db,
   files: AttachmentFiles,

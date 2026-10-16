@@ -23,10 +23,7 @@ type Constraints = SQLiteTableExtraConfigValue[];
 
 export type SessionStatus = "open" | "closed";
 
-/**
- * One Bot's model context in one Conversation. Its key is the Conversation and the Bot only (#8).
- * A closed Session stays as the record of when it ran and with which instructions.
- */
+/** A closed Session stays as the record of when it ran and with which instructions. */
 export const sessions = sqliteTable(
   "sessions",
   {
@@ -35,7 +32,6 @@ export const sessions = sqliteTable(
     conversationId: text("conversation_id").notNull(),
     botId: text("bot_id").notNull(),
     status: text("status").$type<SessionStatus>().notNull(),
-    /** The Bot's `instructions_version` when the Session opened. */
     botInstructionsVersion: integer("bot_instructions_version").notNull().default(1),
     openedAt: integer("opened_at", { mode: "timestamp_ms" }).notNull(),
     closedAt: integer("closed_at", { mode: "timestamp_ms" }),
@@ -92,7 +88,6 @@ export const runs = sqliteTable(
 
 export type AuthorKind = "owner" | "bot";
 
-/** A public message of a Conversation; a Bot's message names the Run that wrote it. */
 export const messages = sqliteTable(
   "messages",
   {
@@ -125,10 +120,7 @@ export const messages = sqliteTable(
   ],
 );
 
-/**
- * The Conversation's SSE event log. The integer id is the `Last-Event-ID`; AUTOINCREMENT keeps
- * ids from being reused, and SQLite's single writer makes commit order follow id order.
- */
+/** AUTOINCREMENT keeps ids from being reused, and SQLite's single writer makes commit order follow id order. */
 export const conversationEvents = sqliteTable(
   "conversation_events",
   {
@@ -147,10 +139,7 @@ export const conversationEvents = sqliteTable(
   ],
 );
 
-/**
- * A file on a public message. The bytes live outside app.db at a path derived from the Workspace
- * and attachment ids only, so the given file name never reaches the file system.
- */
+/** The bytes live outside app.db at a path built from ids only, so the given file name never reaches the file system. */
 export const attachments = sqliteTable(
   "attachments",
   {

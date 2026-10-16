@@ -68,11 +68,7 @@ function ownerOnlyDir(path: string, create: boolean): boolean {
   return true;
 }
 
-/**
- * Attachment bytes under `<data dir>/attachments/<workspace id>/<attachment id>`. The path is
- * built from trusted ids only, files are created exclusively without following symlinks, and
- * reads never follow one either.
- */
+/** Files are created exclusively without following symlinks, and reads never follow one either. */
 export class AttachmentFiles {
   constructor(readonly root: string) {}
 
@@ -182,10 +178,7 @@ export function toAttachmentItem(attachment: Attachment): AttachmentItem {
   };
 }
 
-/**
- * Writes each new Attachment's file, then its row; the caller runs this inside the message's transaction
- * and removes `written` files if that transaction fails.
- */
+/** The caller runs this inside the message's transaction and removes `written` files if it fails. */
 export function insertAttachments(
   db: Db,
   tenant: TenantContext,
@@ -218,7 +211,6 @@ export function insertAttachments(
   });
 }
 
-/** The tenant's Attachments of the given messages, keyed by message id, oldest first. */
 export function attachmentsOf(
   db: Db,
   tenant: TenantContext,
@@ -240,7 +232,6 @@ export function attachmentsOf(
   return byMessage;
 }
 
-/** An Attachment of a message in this Conversation of this Workspace, or undefined. */
 export function getAttachment(
   db: Db,
   tenant: TenantContext,
@@ -268,7 +259,6 @@ export function getAttachment(
   return row && toAttachment(row.attachment);
 }
 
-/** The bytes of an Attachment found with `getAttachment`; undefined if the file is gone. */
 export function readAttachment(
   files: AttachmentFiles,
   tenant: TenantContext,
@@ -277,21 +267,15 @@ export function readAttachment(
   return files.read(tenant, attachment.id);
 }
 
-/** Removes the files of Attachments whose rows a committed deletion took away. */
 export function removeAttachmentFiles(files: AttachmentFiles, tenant: TenantContext, ids: string[]): void {
   for (const id of ids) files.remove(tenant, id);
 }
 
-/** Removes every Attachment file of the Workspace, for deleting the Workspace. */
 export function removeWorkspaceAttachments(files: AttachmentFiles, tenant: TenantContext): void {
   files.removeWorkspace(tenant);
 }
 
-/**
- * Startup only, across Workspaces: removes Attachment files that have no row, which a stop between
- * a delete's commit and its file removal leaves behind. Returns how many files it removed, not
- * counting whole Workspace dirs.
- */
+/** Removes Attachment files without a row, which a stop between a delete's commit and its file removal leaves behind. */
 export function sweepAttachmentFiles(db: Db, files: AttachmentFiles): number {
   const keep = new Map<string, Set<string>>();
   for (const row of db

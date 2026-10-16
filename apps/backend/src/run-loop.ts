@@ -21,7 +21,7 @@ type SessionSlot = {
   running?: RunningRun;
 };
 
-/** Runs a tool for the Run the mailbox is running; its Bot and Workspace come from that Run. */
+/** The Bot and Workspace come from the Run on the mailbox, never from the request. */
 function runTool(
   db: Db,
   tenant: TenantContext,
@@ -48,10 +48,7 @@ function runTool(
   }
 }
 
-/**
- * Drives Runs between app.db and the runner. app.db is the source of truth for the Run lifecycle;
- * this loop only moves each Session's oldest queued Run to the runner and records what comes back.
- */
+/** app.db is the source of truth for the Run lifecycle; this loop only hands Runs to the runner and records what comes back. */
 export class RunLoop {
   readonly #db: Db;
   readonly #runner: Runner;
@@ -67,7 +64,6 @@ export class RunLoop {
     this.#now = options.now;
   }
 
-  /** Fails Runs a previous process left running and resumes Sessions that still have queued Runs. */
   recover(): void {
     for (const queued of failInterruptedRuns(this.#db, this.#now())) {
       const tenant = resolveTenant(this.#db, queued.workspaceId, queued.actor);
@@ -75,7 +71,6 @@ export class RunLoop {
     }
   }
 
-  /** Starts the Session's next Run unless one is already running. */
   kick(tenant: TenantContext, sessionId: string): void {
     if (this.#stopped) return;
     const slot = this.#slot(tenant, sessionId);
@@ -93,7 +88,6 @@ export class RunLoop {
     } satisfies RunnerInbound);
   }
 
-  /** The owner stops a queued or running Run; undefined when it is not the tenant's. */
   cancel(tenant: TenantContext, runId: string): Run | undefined {
     const run = cancelRun(this.#db, tenant, runId, this.#now());
     if (!run) return undefined;
@@ -102,10 +96,7 @@ export class RunLoop {
     return run;
   }
 
-  /**
-   * Tells the runner to stop Runs app.db already records as cancelled. Their Session keeps its slot
-   * until the runner confirms with run_finished, so the next Run never overlaps the stopping one.
-   */
+  /** The Session keeps its slot until the runner confirms with run_finished, so the next Run never overlaps the stopping one. */
   stopCancelled(runIds: readonly string[]): void {
     for (const slot of this.#sessions.values()) {
       const runId = slot.running?.runId;

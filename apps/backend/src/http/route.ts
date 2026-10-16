@@ -11,7 +11,6 @@ export type RouteContext = {
   runs: RunLoop;
   hub: ConversationHub;
   attachments: AttachmentFiles;
-  /** How often an open stream re-checks its Login and Workspace. */
   streamCheckMs: number;
 };
 

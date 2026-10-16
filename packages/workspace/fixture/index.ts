@@ -1,7 +1,4 @@
-/**
- * A test-only domain that never reaches app.db. It shows how a Workspace-owned table
- * and its domain functions are written, and tests the pattern itself.
- */
+/** A test-only domain that never reaches app.db; it is the template for a Workspace-owned table. */
 import type { Db } from "@momo/migrator";
 import { and, asc, eq, gt } from "drizzle-orm";
 import { fileURLToPath } from "node:url";

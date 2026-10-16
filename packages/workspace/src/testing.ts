@@ -6,12 +6,7 @@ type Index = { name: string; unique: number };
 
 const quote = (name: string) => `"${name.replaceAll('"', '""')}"`;
 
-/**
- * Lists every way a table with a `workspace_id` column breaks the Workspace-owned table rules.
- * Run it over a migrated database so a new table, or a recreate that dropped a trigger, is caught.
- * Virtual tables are left out: they cannot carry keys or triggers, and the owning table's triggers
- * copy their `workspace_id`.
- */
+/** Virtual tables are left out: they cannot carry keys or triggers, and the owning table's triggers copy their `workspace_id`. */
 export function workspaceOwnedTableProblems(sqlite: Database): string[] {
   const tables = sqlite
     .query<{ name: string }, []>(

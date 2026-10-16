@@ -29,7 +29,7 @@ export function getRun(db: Db, tenant: TenantContext, id: string): Run | undefin
     .get();
 }
 
-/** Queues a Run for an owner message; the ids come from rows the caller already found in the tenant. */
+/** The ids come from rows the caller already found in the tenant. */
 export function queueRun(
   db: Db,
   tenant: TenantContext,
@@ -60,10 +60,7 @@ export function queueRun(
   return run;
 }
 
-/**
- * Starts the Session's oldest queued Run, unless one is already running: a Session runs its Runs
- * one at a time so their effects are attributed to the right Run (ADR-0018).
- */
+/** A Session runs its Runs one at a time so their effects are attributed to the right Run (ADR-0018). */
 export function startNextRun(
   db: Db,
   tenant: TenantContext,
@@ -118,7 +115,6 @@ function runningRun(db: Db, tenant: TenantContext, runId: string): Run | undefin
     .get();
 }
 
-/** Records streamed text of a running Run; false when the Run is not running in the tenant. */
 export function appendRunDelta(
   db: Db,
   tenant: TenantContext,
@@ -150,10 +146,7 @@ function streamedText(db: Db, tenant: TenantContext, runId: string): string {
     .join("");
 }
 
-/**
- * Ends an unfinished Run of the tenant. The text a completed or cancelled Run streamed becomes the
- * Bot's public message in the same transaction, so the history never shows the Run without it.
- */
+/** The streamed text becomes the Bot's message in the same transaction, so the history never shows the Run without it. */
 function endRun(db: Db, tenant: TenantContext, unfinished: Run, outcome: RunOutcome, now: Date): Run {
   const text = streamedText(db, tenant, unfinished.id);
   if (outcome !== "failed" && text !== "") {
@@ -191,7 +184,6 @@ function endRun(db: Db, tenant: TenantContext, unfinished: Run, outcome: RunOutc
   return run;
 }
 
-/** Finishes a running Run as the runner reports it; undefined when it is not running in the tenant. */
 export function finishRun(
   db: Db,
   tenant: TenantContext,
@@ -204,10 +196,7 @@ export function finishRun(
   });
 }
 
-/**
- * The owner stops a queued or running Run. app.db records the stop at once, so the history and a
- * reload show it whether or not the runner answers the cancel. A finished Run is returned as it is.
- */
+/** app.db records the stop at once, so a reload shows it whether or not the runner answers the cancel. */
 export function cancelRun(db: Db, tenant: TenantContext, runId: string, now: Date): Run | undefined {
   return db.transaction((tx) => {
     const run = getRun(tx, tenant, runId);
@@ -216,7 +205,6 @@ export function cancelRun(db: Db, tenant: TenantContext, runId: string, now: Dat
   });
 }
 
-/** Cancels every unfinished Run of a Session; returns the ids of those that were running. */
 export function cancelSessionRuns(db: Db, tenant: TenantContext, sessionId: string, now: Date): string[] {
   const unfinished = db
     .select()
@@ -232,10 +220,7 @@ export function cancelSessionRuns(db: Db, tenant: TenantContext, sessionId: stri
 
 export type QueuedSession = { workspaceId: string; sessionId: string; actor: Actor };
 
-/**
- * Startup recovery across all Workspaces, before any request is served: a Run left running by a
- * stopped backend has lost its runner, so it fails. Returns the Sessions that still have queued Runs.
- */
+/** A Run left running by a stopped backend has lost its runner, so it fails. */
 export function failInterruptedRuns(db: Db, now: Date): QueuedSession[] {
   return db.transaction((tx) => {
     const interrupted = tx.select().from(runs).where(eq(runs.status, "running")).all();

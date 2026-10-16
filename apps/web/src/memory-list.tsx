@@ -17,7 +17,7 @@ function Source(props: { provenance: MemoryProvenance; onOpenConversation: (id: 
   );
 }
 
-/** The Bot's Memory items as the owner reviews them. Every field the Bot wrote is drawn as plain text. */
+/** Every field the Bot wrote is drawn as plain text. */
 export function MemoryList(props: {
   workspace: WorkspaceItem;
   bot: BotItem;

@@ -55,10 +55,7 @@ function toMessage({ message: row, writtenBy, answeredBy }: JoinedRow): Message 
 
 const answering = alias(runs, "answering");
 
-/**
- * The tenant's messages with the Run that wrote a Bot's message, or the Run that answers an owner's
- * message; that Run names the Session. Both joins are scoped like the messages.
- */
+/** Both joins are scoped like the messages. */
 function selectMessages(db: Db, tenant: TenantContext) {
   return db
     .select({
@@ -98,7 +95,7 @@ export function toMessageItem(message: Message): MessageItem {
   };
 }
 
-/** Inserts a public message; callers check the Conversation (and the Bot's part in it) first. */
+/** Callers check the Conversation, and the Bot's part in it, first. */
 export function insertMessage(
   db: Db,
   tenant: TenantContext,
@@ -130,7 +127,6 @@ export function insertMessage(
   };
 }
 
-/** All public messages of the Conversation, oldest first, for a Run's input. */
 export function conversationMessages(db: Db, tenant: TenantContext, conversationId: string): Message[] {
   const list = selectMessages(db, tenant)
     .where(and(inTenant(messages, tenant), eq(messages.conversationId, conversationId)))
@@ -140,7 +136,6 @@ export function conversationMessages(db: Db, tenant: TenantContext, conversation
   return withAttachments(db, tenant, list);
 }
 
-/** The Conversation's history, oldest first; undefined when the Conversation is not the tenant's. */
 export function listMessages(
   db: Db,
   tenant: TenantContext,

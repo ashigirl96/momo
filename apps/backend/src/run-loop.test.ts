@@ -19,7 +19,6 @@ import { RunLoop } from "./run-loop.ts";
 
 const now = new Date("2026-10-01T00:00:00Z");
 
-/** A runner the test drives by hand: it records every Run start and tool result per mailbox. */
 class ScriptedRunner implements Runner {
   readonly mailboxes: { mailbox: SessionMailbox; inbound: RunnerInbound[] }[] = [];
 
@@ -61,7 +60,6 @@ afterEach(() => {
   testDb.close();
 });
 
-/** Posts a message in a new Conversation and lets the loop start its Run on a new mailbox. */
 async function startRun() {
   const conversation = createConversation(db(), tenant, { primaryBotId: bot.id, now })!;
   const { run } = postOwnerMessage(db(), tenant, { conversationId: conversation.id, text: "やあ", now })!;

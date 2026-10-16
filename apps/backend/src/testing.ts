@@ -8,7 +8,6 @@ export type TestBackend = Backend & {
   dataDir: string;
   /** Sends a request the way the momo UI in a browser would; override headers to forge one. */
   call(path: string, init?: CallInit): Promise<Response>;
-  /** Runs the `momo open` pairing and returns the Login cookie header value. */
   login(userAgent?: string): Promise<string>;
   pairing(): Promise<Pairing>;
   restart(overrides?: Partial<BackendOptions>): Promise<TestBackend>;

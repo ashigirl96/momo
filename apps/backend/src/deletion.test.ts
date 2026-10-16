@@ -54,7 +54,6 @@ type Seeded = {
   tenant: TenantContext;
   botId: string;
   otherBotId: string;
-  /** Conversations led by `botId`. */
   conversations: string[];
   otherConversation: string;
   memoryId: string;
@@ -63,11 +62,7 @@ type Seeded = {
   runningRunId: string;
 };
 
-/**
- * A Workspace with every kind of row: Bots, Conversations, a closed and an open Session, finished,
- * running and queued Runs, Bot messages, events, an Attachment and Memory items. `secret` is in
- * every text the owner or the Bot wrote.
- */
+/** `secret` is in every text the owner or the Bot wrote. */
 function seed(name: string, secret: string): Seeded {
   const tenant = resolveTenant(db(), createWorkspace(db(), { name, now }).id, {
     kind: "owner",
@@ -133,7 +128,6 @@ function seed(name: string, secret: string): Seeded {
   };
 }
 
-/** Rows per table that carry this Workspace's id, the full-text index included. */
 function rowsOf(workspaceId: string): Record<string, number> {
   const tables = testDb.sqlite
     .query<{ name: string }, []>("SELECT name FROM sqlite_master WHERE type = 'table'")

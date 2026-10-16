@@ -5,10 +5,7 @@ import type { TenantContext } from "./tenant.ts";
 
 type WorkspaceOwned = { workspaceId: AnySQLiteColumn; id: AnySQLiteColumn };
 
-/**
- * The `workspace_id` column every Workspace-owned table carries. It is never updated;
- * each table's migration adds the trigger that refuses to change it.
- */
+/** Each table's migration adds the trigger that refuses to change it. */
 export const workspaceIdColumn = () =>
   text("workspace_id")
     .notNull()
