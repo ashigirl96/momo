@@ -1,6 +1,8 @@
 import { z } from "zod";
 
+export * from "./bots.ts";
 export * from "./local.ts";
+export * from "./mailbox.ts";
 
 const epochMs = z.int().nonnegative();
 

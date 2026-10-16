@@ -6,6 +6,7 @@ export const migrations: MigrationSource = {
   dir: fileURLToPath(new URL("../migrations", import.meta.url)),
 };
 
+export * from "./bots.ts";
 export * from "./logins.ts";
 export * from "./paging.ts";
 export * from "./scoped.ts";

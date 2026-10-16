@@ -1,6 +1,6 @@
 import { eq, type SQL } from "drizzle-orm";
 import { foreignKey, text, unique, type AnySQLiteColumn } from "drizzle-orm/sqlite-core";
-import { workspaces } from "./schema.ts";
+import { workspaces } from "./workspace-table.ts";
 import type { TenantContext } from "./tenant.ts";
 
 type WorkspaceOwned = { workspaceId: AnySQLiteColumn; id: AnySQLiteColumn };

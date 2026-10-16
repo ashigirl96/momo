@@ -92,6 +92,7 @@
     "packages/workspace": {
       "name": "@momo/workspace",
       "dependencies": {
+        "@momo/contracts": "workspace:*",
         "@momo/migrator": "workspace:*",
         "drizzle-orm": "1.0.0-rc.4",
       },
