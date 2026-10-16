@@ -11,6 +11,7 @@ import {
   lstatSync,
   mkdirSync,
   openSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeSync,
@@ -120,6 +121,28 @@ export class AttachmentFiles {
 
   removeWorkspace(tenant: TenantContext): void {
     rmSync(join(this.root, segment(tenant.workspaceId)), { recursive: true, force: true });
+  }
+
+  /** Removes every id-named entry that `keep` does not list; other names are left alone. */
+  sweep(keep: Map<string, Set<string>>): number {
+    if (!ownerOnlyDir(this.root, false)) return 0;
+    let removed = 0;
+    for (const workspace of readdirSync(this.root, { withFileTypes: true })) {
+      if (!ID.test(workspace.name)) continue;
+      const dir = join(this.root, workspace.name);
+      const ids = keep.get(workspace.name);
+      if (!ids) {
+        rmSync(dir, { recursive: true, force: true });
+        continue;
+      }
+      if (!workspace.isDirectory()) continue;
+      for (const file of readdirSync(dir)) {
+        if (!ID.test(file) || ids.has(file)) continue;
+        rmSync(join(dir, file), { force: true });
+        removed++;
+      }
+    }
+    return removed;
   }
 }
 
@@ -262,4 +285,22 @@ export function removeAttachmentFiles(files: AttachmentFiles, tenant: TenantCont
 /** Removes every Attachment file of the Workspace, for deleting the Workspace. */
 export function removeWorkspaceAttachments(files: AttachmentFiles, tenant: TenantContext): void {
   files.removeWorkspace(tenant);
+}
+
+/**
+ * Startup only, across Workspaces: removes Attachment files that have no row, which a stop between
+ * a delete's commit and its file removal leaves behind. Returns how many files it removed, not
+ * counting whole Workspace dirs.
+ */
+export function sweepAttachmentFiles(db: Db, files: AttachmentFiles): number {
+  const keep = new Map<string, Set<string>>();
+  for (const row of db
+    .select({ workspaceId: attachments.workspaceId, id: attachments.id })
+    .from(attachments)
+    .all()) {
+    const ids = keep.get(row.workspaceId) ?? new Set<string>();
+    ids.add(row.id);
+    keep.set(row.workspaceId, ids);
+  }
+  return files.sweep(keep);
 }

@@ -29,8 +29,10 @@ import {
   getAttachment,
   readAttachment,
   removeWorkspaceAttachments,
+  sweepAttachmentFiles,
   type AttachmentUpload,
 } from "./attachments.ts";
+import { deleteConversationRecords } from "./deletion.ts";
 import { eventsAfter } from "./events.ts";
 import { migrations } from "./index.ts";
 import { listMessages } from "./messages.ts";
@@ -241,5 +243,51 @@ describe("removing a Workspace's attachment files", () => {
 
     expect(existsSync(join(dataDir, "attachments", a.workspaceId))).toBe(false);
     expect(lstatSync(join(elsewhere, "keep.txt")).isFile()).toBe(true);
+  });
+});
+
+describe("sweeping Attachment files at startup", () => {
+  test("removes the files whose rows a committed delete took away and keeps every file that has a row", () => {
+    const gone = post([upload("a.txt"), upload("b.txt")])!.message.attachments;
+    const [kept] = post([upload("kept.txt", "残る")], a, convA2)!.message.attachments;
+    const [theirs] = post([upload("theirs.txt", "B の中身")], b, convB)!.message.attachments;
+    deleteConversationRecords(db(), a, [convA.id]);
+
+    expect(sweepAttachmentFiles(db(), files)).toBe(2);
+
+    for (const x of gone) expect(existsSync(join(dataDir, "attachments", a.workspaceId, x.id))).toBe(false);
+    expect(new TextDecoder().decode(readAttachment(files, a, kept!))).toBe("残る");
+    expect(new TextDecoder().decode(readAttachment(files, b, theirs!))).toBe("B の中身");
+    expect(sweepAttachmentFiles(db(), files)).toBe(0);
+  });
+
+  test("removes the dir of a Workspace without Attachment rows, and unlinks a symlinked one without touching its target", () => {
+    post([upload("memo.txt")], b, convB);
+    deleteConversationRecords(db(), b, [convB.id]);
+    const elsewhere = join(dataDir, "elsewhere");
+    mkdirSync(elsewhere);
+    writeFileSync(join(elsewhere, "keep.txt"), "keep");
+    symlinkSync(elsewhere, join(dataDir, "attachments", a.workspaceId));
+
+    sweepAttachmentFiles(db(), files);
+
+    expect(readdirSync(join(dataDir, "attachments"))).toEqual([]);
+    expect(lstatSync(join(elsewhere, "keep.txt")).isFile()).toBe(true);
+  });
+
+  test("leaves names that are not Attachment or Workspace ids alone", () => {
+    post([upload("memo.txt")]);
+    writeFileSync(join(dataDir, "attachments", "README"), "x");
+    writeFileSync(join(dataDir, "attachments", a.workspaceId, "notes"), "x");
+
+    sweepAttachmentFiles(db(), files);
+
+    expect(existsSync(join(dataDir, "attachments", "README"))).toBe(true);
+    expect(existsSync(join(dataDir, "attachments", a.workspaceId, "notes"))).toBe(true);
+  });
+
+  test("does nothing before any file was stored", () => {
+    expect(sweepAttachmentFiles(db(), files)).toBe(0);
+    expect(existsSync(join(dataDir, "attachments"))).toBe(false);
   });
 });
