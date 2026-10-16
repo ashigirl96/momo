@@ -1,8 +1,8 @@
 import { eventsAfter, streamAfter } from "@momo/agent";
-import { getConversation, type TenantContext } from "@momo/workspace";
+import { getConversation, type WorkspaceScope } from "@momo/workspace";
 import type { RouteContext } from "./route.ts";
 import { apiError } from "./respond.ts";
-import type { TenantRequest } from "./workspaces.ts";
+import type { WorkspaceScopedRequest } from "./workspaces.ts";
 
 const encoder = new TextEncoder();
 
@@ -14,14 +14,14 @@ function parseEventId(value: string | null): number | undefined | "invalid" {
 
 /** Re-checks the Login and Workspace before every batch and every `streamCheckMs`, so a revoked Login or deleted Workspace gets nothing more. */
 export function conversationEvents(
-  { req, server, tenant, reauthorize }: TenantRequest,
+  { req, server, scope, reauthorize }: WorkspaceScopedRequest,
   conversationId: string,
   ctx: RouteContext,
 ): Response {
   const resumed = parseEventId(req.headers.get("last-event-id"));
   const first = parseEventId(new URL(req.url).searchParams.get("after"));
   if (resumed === "invalid" || first === "invalid") return apiError("bad_request", "invalid event id");
-  let last = resumed ?? first ?? streamAfter(ctx.db, tenant, conversationId);
+  let last = resumed ?? first ?? streamAfter(ctx.db, scope, conversationId);
 
   // Bun's 10 s idle timeout would otherwise cut a quiet stream.
   server.timeout(req, 0);
@@ -39,17 +39,17 @@ export function conversationEvents(
           // Already closed by the client.
         }
       };
-      const authorized = (): TenantContext | undefined => {
+      const authorized = (): WorkspaceScope | undefined => {
         const again = reauthorize();
         if (!again || !getConversation(ctx.db, again, conversationId)) return undefined;
         return again;
       };
       const flush = () => {
         if (!open) return;
-        const scope = authorized();
-        if (!scope) return close();
+        const current = authorized();
+        if (!current) return close();
         for (;;) {
-          const batch = eventsAfter(ctx.db, scope, conversationId, last);
+          const batch = eventsAfter(ctx.db, current, conversationId, last);
           if (batch.length === 0) return;
           for (const { id, event } of batch) {
             controller.enqueue(encoder.encode(`id: ${id}\ndata: ${JSON.stringify(event)}\n\n`));
@@ -61,7 +61,7 @@ export function conversationEvents(
         if (!authorized()) return close();
         controller.enqueue(encoder.encode(": ok\n\n"));
       };
-      const unsubscribe = ctx.hub.subscribe(tenant, conversationId, flush, close);
+      const unsubscribe = ctx.hub.subscribe(scope, conversationId, flush, close);
       const timer = setInterval(check, ctx.streamCheckMs);
       cleanup = () => {
         clearInterval(timer);

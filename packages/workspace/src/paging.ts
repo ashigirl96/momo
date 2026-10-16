@@ -1,4 +1,4 @@
-import type { TenantContext } from "./tenant.ts";
+import type { WorkspaceScope } from "./workspace-scope.ts";
 
 export type Page<T> = { items: T[]; nextCursor?: string };
 
@@ -11,20 +11,20 @@ export class InvalidCursor extends Error {
 type CursorBody = { w: string; l: string; a: string };
 
 /** A cursor that only the same list in the same Workspace accepts. */
-export function encodeCursor(tenant: TenantContext, list: string, afterId: string): string {
-  const body: CursorBody = { w: tenant.workspaceId, l: list, a: afterId };
+export function encodeCursor(scope: WorkspaceScope, list: string, afterId: string): string {
+  const body: CursorBody = { w: scope.workspaceId, l: list, a: afterId };
   return Buffer.from(JSON.stringify(body)).toString("base64url");
 }
 
 /** Throws InvalidCursor for a cursor of another Workspace or list. */
-export function decodeCursor(tenant: TenantContext, list: string, cursor: string): string {
+export function decodeCursor(scope: WorkspaceScope, list: string, cursor: string): string {
   let body: Partial<CursorBody>;
   try {
     body = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
   } catch {
     throw new InvalidCursor("malformed cursor");
   }
-  if (body.w !== tenant.workspaceId) throw new InvalidCursor("cursor belongs to another Workspace");
+  if (body.w !== scope.workspaceId) throw new InvalidCursor("cursor belongs to another Workspace");
   if (body.l !== list || typeof body.a !== "string")
     throw new InvalidCursor("cursor belongs to another list");
   return body.a;
@@ -37,12 +37,12 @@ export function pageLimit(requested: number | undefined): number {
 
 /** Rows must be fetched with `limit + 1` and ordered by id. */
 export function toPage<T extends { id: string }>(
-  tenant: TenantContext,
+  scope: WorkspaceScope,
   list: string,
   rows: T[],
   limit: number,
 ): Page<T> {
   if (rows.length <= limit) return { items: rows };
   const items = rows.slice(0, limit);
-  return { items, nextCursor: encodeCursor(tenant, list, items.at(-1)!.id) };
+  return { items, nextCursor: encodeCursor(scope, list, items.at(-1)!.id) };
 }

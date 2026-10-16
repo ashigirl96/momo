@@ -7,8 +7,8 @@ import {
   encodeCursor,
   InvalidCursor,
   migrations as workspaceMigrations,
-  resolveTenant,
-  type TenantContext,
+  resolveWorkspaceScope,
+  type WorkspaceScope,
 } from "../src/index.ts";
 import { workspaceOwnedTableProblems } from "../src/testing.ts";
 import {
@@ -27,13 +27,13 @@ const owner = { kind: "owner", loginId: "login_test" } as const;
 
 let testDb: TestDatabase;
 const db = () => drizzle({ client: testDb.sqlite });
-let a: TenantContext;
-let b: TenantContext;
+let a: WorkspaceScope;
+let b: WorkspaceScope;
 
 beforeEach(() => {
   testDb = migratedTestDatabase([workspaceMigrations, fixtureMigrations]);
-  a = resolveTenant(db(), createWorkspace(db(), { name: "A", now }).id, owner)!;
-  b = resolveTenant(db(), createWorkspace(db(), { name: "B", now }).id, owner)!;
+  a = resolveWorkspaceScope(db(), createWorkspace(db(), { name: "A", now }).id, owner)!;
+  b = resolveWorkspaceScope(db(), createWorkspace(db(), { name: "B", now }).id, owner)!;
 });
 
 afterEach(() => {
@@ -77,8 +77,8 @@ describe("Workspace-owned rows", () => {
   });
 });
 
-describe("domain operations under a TenantContext", () => {
-  test("read, update and delete with another Workspace's TenantContext touch nothing", () => {
+describe("domain operations under a WorkspaceScope", () => {
+  test("read, update and delete with another Workspace's WorkspaceScope touch nothing", () => {
     const folder = createFolder(db(), a, { name: "A のフォルダ" });
     const note = createNote(db(), a, { folderId: folder.id, body: "A のメモ" })!;
 

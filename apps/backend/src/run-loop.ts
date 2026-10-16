@@ -9,14 +9,14 @@ import { appendRunDelta, cancelRun, finishRun, startNextRun, type Run } from "@m
 import { searchMemoryItems, toMemoryHit, writeMemoryItem } from "@momo/memory";
 import type { Db } from "@momo/migrator";
 import { failInterruptedRuns } from "@momo/agent/startup";
-import { resolveTenant, type TenantContext } from "@momo/workspace";
+import { resolveWorkspaceScope, type WorkspaceScope } from "@momo/workspace";
 import type { ConversationHub } from "./conversation-hub.ts";
 import { SessionMailbox, type Runner } from "./mailbox.ts";
 
 type RunningRun = { runId: string; conversationId: string; botId: string };
 
 type SessionSlot = {
-  tenant: TenantContext;
+  scope: WorkspaceScope;
   mailbox: SessionMailbox;
   running?: RunningRun;
 };
@@ -24,14 +24,14 @@ type SessionSlot = {
 /** The Bot and Workspace come from the Run on the mailbox, never from the request. */
 function runTool(
   db: Db,
-  tenant: TenantContext,
+  scope: WorkspaceScope,
   running: RunningRun,
   tool: ToolRequest,
   now: Date,
 ): ToolResult {
   try {
     if (tool.kind === "memory_write") {
-      const item = writeMemoryItem(db, tenant, { runId: running.runId, item: tool.item, now });
+      const item = writeMemoryItem(db, scope, { runId: running.runId, item: tool.item, now });
       return item
         ? { kind: "memory_written", id: item.id }
         : { kind: "error", error: "not_in_run", message: "the Run is no longer running" };
@@ -39,7 +39,7 @@ function runTool(
     if (tool.kind === "memory_search")
       return {
         kind: "memory_found",
-        items: searchMemoryItems(db, tenant, running.botId, tool.query).map(toMemoryHit),
+        items: searchMemoryItems(db, scope, running.botId, tool.query).map(toMemoryHit),
       };
     return { kind: "error", error: "invalid_request", message: "this tool is not available in a Run" };
   } catch (error) {
@@ -66,16 +66,16 @@ export class RunLoop {
 
   recover(): void {
     for (const queued of failInterruptedRuns(this.#db, this.#now())) {
-      const tenant = resolveTenant(this.#db, queued.workspaceId, queued.actor);
-      if (tenant) this.kick(tenant, queued.sessionId);
+      const scope = resolveWorkspaceScope(this.#db, queued.workspaceId, queued.actor);
+      if (scope) this.kick(scope, queued.sessionId);
     }
   }
 
-  kick(tenant: TenantContext, sessionId: string): void {
+  kick(scope: WorkspaceScope, sessionId: string): void {
     if (this.#stopped) return;
-    const slot = this.#slot(tenant, sessionId);
+    const slot = this.#slot(scope, sessionId);
     if (slot.running) return;
-    const started = startNextRun(this.#db, slot.tenant, sessionId, this.#now());
+    const started = startNextRun(this.#db, slot.scope, sessionId, this.#now());
     if (!started) return;
     const { run } = started;
     slot.running = { runId: run.id, conversationId: run.conversationId, botId: run.botId };
@@ -88,8 +88,8 @@ export class RunLoop {
     } satisfies RunnerInbound);
   }
 
-  cancel(tenant: TenantContext, runId: string): Run | undefined {
-    const run = cancelRun(this.#db, tenant, runId, this.#now());
+  cancel(scope: WorkspaceScope, runId: string): Run | undefined {
+    const run = cancelRun(this.#db, scope, runId, this.#now());
     if (!run) return undefined;
     this.stopCancelled([run.id]);
     this.#hub.notify(run.workspaceId, run.conversationId);
@@ -109,10 +109,10 @@ export class RunLoop {
     this.#runner.stop();
   }
 
-  #slot(tenant: TenantContext, sessionId: string): SessionSlot {
+  #slot(scope: WorkspaceScope, sessionId: string): SessionSlot {
     const existing = this.#sessions.get(sessionId);
     if (existing) return existing;
-    const slot: SessionSlot = { tenant, mailbox: new SessionMailbox() };
+    const slot: SessionSlot = { scope, mailbox: new SessionMailbox() };
     slot.mailbox.onOutbound((raw) => this.#receive(sessionId, slot, raw));
     this.#runner.attach(slot.mailbox);
     this.#sessions.set(sessionId, slot);
@@ -138,8 +138,8 @@ export class RunLoop {
     }
     const now = this.#now();
     if (message.kind === "stream_delta") {
-      if (appendRunDelta(this.#db, slot.tenant, running.runId, message.text, now))
-        this.#hub.notify(slot.tenant.workspaceId, running.conversationId);
+      if (appendRunDelta(this.#db, slot.scope, running.runId, message.text, now))
+        this.#hub.notify(slot.scope.workspaceId, running.conversationId);
       return;
     }
     if (message.kind === "tool_request") {
@@ -147,7 +147,7 @@ export class RunLoop {
         kind: "tool_result",
         runId: running.runId,
         requestId: message.requestId,
-        result: runTool(this.#db, slot.tenant, running, message.tool, now),
+        result: runTool(this.#db, slot.scope, running, message.tool, now),
       });
       return;
     }
@@ -157,14 +157,14 @@ export class RunLoop {
   #finish(sessionId: string, slot: SessionSlot, outcome: RunOutcome): void {
     const running = slot.running!;
     try {
-      finishRun(this.#db, slot.tenant, running.runId, { outcome, now: this.#now() });
+      finishRun(this.#db, slot.scope, running.runId, { outcome, now: this.#now() });
     } catch (error) {
       if (this.#stopped || outcome === "failed") throw error;
       console.error(`run ${running.runId}: could not record ${outcome}: ${(error as Error).message}`);
-      finishRun(this.#db, slot.tenant, running.runId, { outcome: "failed", now: this.#now() });
+      finishRun(this.#db, slot.scope, running.runId, { outcome: "failed", now: this.#now() });
     }
     slot.running = undefined;
-    this.#hub.notify(slot.tenant.workspaceId, running.conversationId);
-    this.kick(slot.tenant, sessionId);
+    this.#hub.notify(slot.scope.workspaceId, running.conversationId);
+    this.kick(slot.scope, sessionId);
   }
 }

@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { AttachmentFiles } from "@momo/agent";
 import { MemoryList, MessagePage } from "@momo/contracts";
 import { openDatabase } from "@momo/migrator";
-import { resolveTenant } from "@momo/workspace";
+import { resolveWorkspaceScope } from "@momo/workspace";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -125,8 +125,12 @@ describe("restarting the backend on the 2×2×2 fixture", () => {
     const db = drizzle({ client: sqlite });
     const files = new StopsBeforeRemovingFiles(root);
     const owner = { kind: "owner", loginId: "login_test" } as const;
-    expect(() => deleteWorkspaceEverywhere(db, files, resolveTenant(db, w0.id, owner)!)).toThrow(Stopped);
-    expect(() => deleteBotEverywhere(db, files, resolveTenant(db, w1.id, owner)!, gone.id)).toThrow(Stopped);
+    expect(() => deleteWorkspaceEverywhere(db, files, resolveWorkspaceScope(db, w0.id, owner)!)).toThrow(
+      Stopped,
+    );
+    expect(() => deleteBotEverywhere(db, files, resolveWorkspaceScope(db, w1.id, owner)!, gone.id)).toThrow(
+      Stopped,
+    );
     sqlite.close();
     expect(readdirSync(join(root, w0.id))).toHaveLength(4);
     expect(readdirSync(join(root, w1.id))).toHaveLength(4);

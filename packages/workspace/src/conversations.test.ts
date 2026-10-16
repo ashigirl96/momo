@@ -5,7 +5,7 @@ import { createBot } from "./bots.ts";
 import { createConversation, getConversation, listConversations } from "./conversations.ts";
 import { migrations } from "./index.ts";
 import { InvalidCursor } from "./paging.ts";
-import { resolveTenant, type TenantContext } from "./tenant.ts";
+import { resolveWorkspaceScope, type WorkspaceScope } from "./workspace-scope.ts";
 import { workspaceOwnedTableProblems } from "./testing.ts";
 import { createWorkspace } from "./workspaces.ts";
 
@@ -15,21 +15,21 @@ const settings = { name: "仕事 Bot", instructions: "議事録を手伝う", mo
 
 let testDb: TestDatabase;
 const db = () => drizzle({ client: testDb.sqlite });
-let a: TenantContext;
-let b: TenantContext;
+let a: WorkspaceScope;
+let b: WorkspaceScope;
 
 beforeEach(() => {
   testDb = migratedTestDatabase([migrations]);
-  a = resolveTenant(db(), createWorkspace(db(), { name: "A", now }).id, owner)!;
-  b = resolveTenant(db(), createWorkspace(db(), { name: "B", now }).id, owner)!;
+  a = resolveWorkspaceScope(db(), createWorkspace(db(), { name: "A", now }).id, owner)!;
+  b = resolveWorkspaceScope(db(), createWorkspace(db(), { name: "B", now }).id, owner)!;
 });
 
 afterEach(() => {
   testDb.close();
 });
 
-const bot = (tenant: TenantContext, name = "仕事 Bot") =>
-  createBot(db(), tenant, { ...settings, name, tools: [], now });
+const bot = (scope: WorkspaceScope, name = "仕事 Bot") =>
+  createBot(db(), scope, { ...settings, name, tools: [], now });
 
 describe("Conversations", () => {
   test("a Conversation has its Bot as the one primary participant, after reopening the database", () => {
@@ -55,7 +55,7 @@ describe("Conversations", () => {
     expect(listConversations(db(), b, {}).items).toEqual([]);
   });
 
-  test("another Workspace's TenantContext cannot read a Conversation", () => {
+  test("another Workspace's WorkspaceScope cannot read a Conversation", () => {
     const conversation = createConversation(db(), a, { primaryBotId: bot(a).id, now })!;
 
     expect(getConversation(db(), b, conversation.id)).toBeUndefined();

@@ -6,10 +6,10 @@ import {
   createWorkspace,
   getBot,
   migrations as workspaceMigrations,
-  resolveTenant,
+  resolveWorkspaceScope,
   type Bot,
   type Conversation,
-  type TenantContext,
+  type WorkspaceScope,
 } from "@momo/workspace";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { eventsAfter } from "./events.ts";
@@ -24,21 +24,21 @@ const later = new Date("2026-10-01T00:00:05Z");
 
 let testDb: TestDatabase;
 const db = () => drizzle({ client: testDb.sqlite });
-let a: TenantContext;
-let b: TenantContext;
+let a: WorkspaceScope;
+let b: WorkspaceScope;
 let botA: Bot;
 let convA: Conversation;
 
-function workspace(name: string): TenantContext {
-  return resolveTenant(db(), createWorkspace(db(), { name, now }).id, {
+function workspace(name: string): WorkspaceScope {
+  return resolveWorkspaceScope(db(), createWorkspace(db(), { name, now }).id, {
     kind: "owner",
     loginId: `login_${name}`,
   })!;
 }
 
-function botWithConversation(tenant: TenantContext, name: string): [Bot, Conversation] {
-  const bot = createBot(db(), tenant, { name, instructions: "手伝う", model: "sonnet", tools: [], now });
-  return [bot, createConversation(db(), tenant, { primaryBotId: bot.id, now })!];
+function botWithConversation(scope: WorkspaceScope, name: string): [Bot, Conversation] {
+  const bot = createBot(db(), scope, { name, instructions: "手伝う", model: "sonnet", tools: [], now });
+  return [bot, createConversation(db(), scope, { primaryBotId: bot.id, now })!];
 }
 
 beforeEach(() => {
@@ -53,13 +53,13 @@ afterEach(() => {
   testDb.close();
 });
 
-const post = (text: string, tenant = a, conversation = convA) =>
-  postOwnerMessage(db(), tenant, { conversationId: conversation.id, text, now })!;
+const post = (text: string, scope = a, conversation = convA) =>
+  postOwnerMessage(db(), scope, { conversationId: conversation.id, text, now })!;
 
-function reply(tenant: TenantContext, sessionId: string, text: string) {
-  const started = startNextRun(db(), tenant, sessionId, now)!;
-  appendRunDelta(db(), tenant, started.run.id, text, now);
-  finishRun(db(), tenant, started.run.id, { outcome: "completed", now });
+function reply(scope: WorkspaceScope, sessionId: string, text: string) {
+  const started = startNextRun(db(), scope, sessionId, now)!;
+  appendRunDelta(db(), scope, started.run.id, text, now);
+  finishRun(db(), scope, started.run.id, { outcome: "completed", now });
   return started;
 }
 

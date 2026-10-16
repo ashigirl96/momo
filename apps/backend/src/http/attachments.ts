@@ -5,7 +5,7 @@ import {
   PostMessageRequest,
 } from "@momo/contracts";
 import { readAttachment, type Attachment, type AttachmentFiles, type NewAttachment } from "@momo/agent";
-import type { TenantContext } from "@momo/workspace";
+import type { WorkspaceScope } from "@momo/workspace";
 import { apiError } from "./respond.ts";
 import { ATTACHMENT_CONTENT_SECURITY_POLICY } from "./security.ts";
 
@@ -68,10 +68,10 @@ function encodeFilename(name: string): string {
 /** The CSP `sandbox` directive keeps the document's origin opaque and script-free even outside the momo UI's frame. */
 export function attachmentResponse(
   files: AttachmentFiles,
-  tenant: TenantContext,
+  scope: WorkspaceScope,
   attachment: Attachment,
 ): Response {
-  const bytes = readAttachment(files, tenant, attachment);
+  const bytes = readAttachment(files, scope, attachment);
   if (!bytes) return apiError("not_found", "no such Attachment");
   const type = attachment.contentType.startsWith("text/")
     ? `${attachment.contentType}; charset=utf-8`

@@ -5,9 +5,9 @@ import {
   createConversation,
   createWorkspace,
   migrations as workspaceMigrations,
-  resolveTenant,
+  resolveWorkspaceScope,
   type Conversation,
-  type TenantContext,
+  type WorkspaceScope,
 } from "@momo/workspace";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import {
@@ -45,22 +45,22 @@ let testDb: TestDatabase;
 let dataDir: string;
 let files: AttachmentFiles;
 const db = () => drizzle({ client: testDb.sqlite });
-let a: TenantContext;
-let b: TenantContext;
+let a: WorkspaceScope;
+let b: WorkspaceScope;
 let convA: Conversation;
 let convA2: Conversation;
 let convB: Conversation;
 
-function workspace(name: string): TenantContext {
-  return resolveTenant(db(), createWorkspace(db(), { name, now }).id, {
+function workspace(name: string): WorkspaceScope {
+  return resolveWorkspaceScope(db(), createWorkspace(db(), { name, now }).id, {
     kind: "owner",
     loginId: `login_${name}`,
   })!;
 }
 
-function conversation(tenant: TenantContext): Conversation {
-  const bot = createBot(db(), tenant, { ...settings, name: "Bot", tools: [], now });
-  return createConversation(db(), tenant, { primaryBotId: bot.id, now })!;
+function conversation(scope: WorkspaceScope): Conversation {
+  const bot = createBot(db(), scope, { ...settings, name: "Bot", tools: [], now });
+  return createConversation(db(), scope, { primaryBotId: bot.id, now })!;
 }
 
 beforeEach(() => {
@@ -85,8 +85,8 @@ const newAttachment = (name: string, text = "中身", contentType = "text/plain"
   bytes: new TextEncoder().encode(text),
 });
 
-const post = (newAttachments: NewAttachment[], tenant = a, conv = convA) =>
-  postOwnerMessage(db(), tenant, {
+const post = (newAttachments: NewAttachment[], scope = a, conv = convA) =>
+  postOwnerMessage(db(), scope, {
     conversationId: conv.id,
     text: "見て",
     now,

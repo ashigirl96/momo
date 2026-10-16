@@ -1,19 +1,19 @@
-import type { TenantContext } from "@momo/workspace";
+import type { WorkspaceScope } from "@momo/workspace";
 
 type Listener = () => void;
 
-/** Carries no event data, so each stream re-reads the log with its own TenantContext and a wake-up cannot leak events. */
+/** Carries no event data, so each stream re-reads the log with its own WorkspaceScope and a wake-up cannot leak events. */
 export class ConversationHub {
   readonly #listeners = new Map<string, Set<Listener>>();
   readonly #closers = new Set<Listener>();
 
   subscribe(
-    tenant: TenantContext,
+    scope: WorkspaceScope,
     conversationId: string,
     listener: Listener,
     onClose: Listener,
   ): () => void {
-    const key = `${tenant.workspaceId}/${conversationId}`;
+    const key = `${scope.workspaceId}/${conversationId}`;
     const set = this.#listeners.get(key) ?? new Set();
     set.add(listener);
     this.#listeners.set(key, set);
