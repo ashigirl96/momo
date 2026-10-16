@@ -1,0 +1,290 @@
+import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { migratedTestDatabase, type TestDatabase } from "@momo/migrator/testing";
+import {
+  createBot,
+  createConversation,
+  createWorkspace,
+  InvalidCursor,
+  migrations as workspaceMigrations,
+  resolveTenant,
+  type Conversation,
+  type TenantContext,
+} from "@momo/workspace";
+import { workspaceOwnedTableProblems } from "@momo/workspace/testing";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+import { eventsAfter, streamAfter } from "./events.ts";
+import { migrations } from "./index.ts";
+import { listMessages } from "./messages.ts";
+import { postOwnerMessage } from "./post-message.ts";
+import { appendRunDelta, failInterruptedRuns, finishRun, getRun, startNextRun } from "./runs.ts";
+
+const now = new Date("2026-10-01T00:00:00Z");
+const later = new Date("2026-10-01T00:00:05Z");
+const settings = { instructions: "手伝う", model: "sonnet", tools: [] } as const;
+
+let testDb: TestDatabase;
+const db = () => drizzle({ client: testDb.sqlite });
+let a: TenantContext;
+let b: TenantContext;
+let convA: Conversation;
+let convB: Conversation;
+
+function workspaceWithConversation(name: string): [TenantContext, Conversation] {
+  const tenant = resolveTenant(db(), createWorkspace(db(), { name, now }).id, {
+    kind: "owner",
+    loginId: `login_${name}`,
+  })!;
+  const bot = createBot(db(), tenant, { ...settings, name: `${name} の Bot`, tools: [], now });
+  return [tenant, createConversation(db(), tenant, { primaryBotId: bot.id, now })!];
+}
+
+beforeEach(() => {
+  testDb = migratedTestDatabase([workspaceMigrations, migrations]);
+  [a, convA] = workspaceWithConversation("A");
+  [b, convB] = workspaceWithConversation("B");
+});
+
+afterEach(() => {
+  testDb.close();
+});
+
+const post = (text: string, tenant = a, conversation = convA) =>
+  postOwnerMessage(db(), tenant, { conversationId: conversation.id, text, now });
+
+const kinds = (tenant: TenantContext, conversation: Conversation, after = 0) =>
+  eventsAfter(db(), tenant, conversation.id, after).map((e) => e.event.kind);
+
+describe("posting an owner message", () => {
+  test("queues a Run of the primary Bot in its Session, carrying the trusted ids and the owner", () => {
+    const { message, run } = post("こんにちは")!;
+
+    expect(message).toMatchObject({
+      conversationId: convA.id,
+      author: { kind: "owner" },
+      text: "こんにちは",
+    });
+    expect(run).toMatchObject({
+      workspaceId: a.workspaceId,
+      conversationId: convA.id,
+      botId: convA.primaryBotId,
+      status: "queued",
+      actorKind: "owner",
+      actorLoginId: "login_A",
+      inputMessageId: message.id,
+    });
+    expect(run.id).toMatch(/^run_[0-9a-f-]{36}$/);
+    expect(run.sessionId).toMatch(/^session_[0-9a-f-]{36}$/);
+    expect(kinds(a, convA)).toEqual(["message_created", "run_queued"]);
+  });
+
+  test("keeps using the one open Session of the Conversation and Bot", () => {
+    const first = post("1")!.run;
+    const second = post("2")!.run;
+
+    expect(second.sessionId).toBe(first.sessionId);
+    expect(() =>
+      testDb.sqlite.run(
+        "INSERT INTO sessions (id, workspace_id, conversation_id, bot_id, status, opened_at) VALUES ('session_x', ?, ?, ?, 'open', 0)",
+        [a.workspaceId, convA.id, convA.primaryBotId],
+      ),
+    ).toThrow(/UNIQUE constraint failed/);
+  });
+
+  test("into another Workspace's Conversation writes nothing", () => {
+    expect(post("乗っ取り", b, convA)).toBeUndefined();
+
+    expect(listMessages(db(), a, convA.id, {})!.items).toEqual([]);
+    expect(eventsAfter(db(), a, convA.id, 0)).toEqual([]);
+  });
+});
+
+describe("the Run lifecycle", () => {
+  test("Runs of one Session run one at a time, in the order they were queued", () => {
+    const first = post("1")!.run;
+    const second = post("2")!.run;
+
+    expect(startNextRun(db(), a, first.sessionId, now)?.run.id).toBe(first.id);
+    expect(startNextRun(db(), a, first.sessionId, now)).toBeUndefined();
+    finishRun(db(), a, first.id, { outcome: "completed", now });
+    expect(startNextRun(db(), a, first.sessionId, now)?.run.id).toBe(second.id);
+  });
+
+  test("the database refuses a second running Run in a Session", () => {
+    const first = post("1")!.run;
+    const second = post("2")!.run;
+    startNextRun(db(), a, first.sessionId, now);
+
+    expect(() => testDb.sqlite.run("UPDATE runs SET status = 'running' WHERE id = ?", [second.id])).toThrow(
+      /UNIQUE constraint failed/,
+    );
+  });
+
+  test("a started Run gets the Conversation's public messages as its input", () => {
+    const first = post("1")!.run;
+    startNextRun(db(), a, first.sessionId, now);
+    appendRunDelta(db(), a, first.id, "返事", now);
+    finishRun(db(), a, first.id, { outcome: "completed", now });
+    post("2");
+
+    expect(startNextRun(db(), a, first.sessionId, now)).toMatchObject({
+      input: "2",
+      history: [
+        { author: "owner", text: "1" },
+        { author: "bot", text: "返事" },
+      ],
+    });
+  });
+
+  test("a completed Run writes the Bot's message from its streamed text", () => {
+    const { message, run } = post("こんにちは")!;
+    startNextRun(db(), a, run.sessionId, now);
+    expect(appendRunDelta(db(), a, run.id, "**こん", now)).toBe(true);
+    expect(appendRunDelta(db(), a, run.id, "にちは**", now)).toBe(true);
+    expect(finishRun(db(), a, run.id, { outcome: "completed", now: later })?.status).toBe("completed");
+
+    const history = listMessages(db(), a, convA.id, {})!.items;
+    expect(history.map((m) => m.id)[0]).toBe(message.id);
+    expect(history[1]).toMatchObject({
+      author: { kind: "bot", botId: convA.primaryBotId, runId: run.id },
+      text: "**こんにちは**",
+      createdAt: later,
+    });
+    expect(kinds(a, convA)).toEqual([
+      "message_created",
+      "run_queued",
+      "run_started",
+      "run_delta",
+      "run_delta",
+      "message_created",
+      "run_finished",
+    ]);
+  });
+
+  test("only a running Run of the same Workspace takes deltas and finishes", () => {
+    const { run } = post("1")!;
+
+    expect(appendRunDelta(db(), a, run.id, "早すぎる", now)).toBe(false);
+    startNextRun(db(), a, run.sessionId, now);
+    expect(appendRunDelta(db(), b, run.id, "越境", now)).toBe(false);
+    expect(finishRun(db(), b, run.id, { outcome: "completed", now })).toBeUndefined();
+    expect(getRun(db(), b, run.id)).toBeUndefined();
+
+    finishRun(db(), a, run.id, { outcome: "completed", now });
+    expect(appendRunDelta(db(), a, run.id, "遅すぎる", now)).toBe(false);
+    expect(finishRun(db(), a, run.id, { outcome: "failed", now })).toBeUndefined();
+    expect(getRun(db(), a, run.id)?.status).toBe("completed");
+  });
+
+  test("a failed Run writes no Bot message", () => {
+    const { run } = post("1")!;
+    startNextRun(db(), a, run.sessionId, now);
+    appendRunDelta(db(), a, run.id, "途中", now);
+    finishRun(db(), a, run.id, { outcome: "failed", now });
+
+    expect(listMessages(db(), a, convA.id, {})!.items).toHaveLength(1);
+  });
+
+  test("on startup, Runs left running fail and Sessions with queued Runs are handed back", () => {
+    const first = post("1")!.run;
+    post("2");
+    const other = post("x", b, convB)!.run;
+    startNextRun(db(), a, first.sessionId, now);
+
+    expect(failInterruptedRuns(db(), now)).toEqual(
+      expect.arrayContaining([
+        {
+          workspaceId: a.workspaceId,
+          sessionId: first.sessionId,
+          actor: { kind: "owner", loginId: "login_A" },
+        },
+        {
+          workspaceId: b.workspaceId,
+          sessionId: other.sessionId,
+          actor: { kind: "owner", loginId: "login_B" },
+        },
+      ]),
+    );
+    expect(getRun(db(), a, first.id)?.status).toBe("failed");
+    expect(kinds(a, convA).at(-1)).toBe("run_finished");
+  });
+});
+
+describe("the event log and history", () => {
+  test("events are read only for the Conversation and Workspace asked for, after the given id", () => {
+    post("A の発言");
+    post("B の発言", b, convB);
+    const ids = eventsAfter(db(), a, convA.id, 0).map((e) => e.id);
+
+    expect(eventsAfter(db(), b, convA.id, 0)).toEqual([]);
+    expect(eventsAfter(db(), a, convB.id, 0)).toEqual([]);
+    expect(eventsAfter(db(), a, convA.id, ids[0]!).map((e) => e.id)).toEqual([ids[1]!]);
+    expect(eventsAfter(db(), b, convB.id, 0).every((e) => !ids.includes(e.id))).toBe(true);
+  });
+
+  test("the stream starts before an unfinished Run so a reload replays it, else after the last event", () => {
+    const { run } = post("1")!;
+    const [created, queued] = eventsAfter(db(), a, convA.id, 0);
+    startNextRun(db(), a, run.sessionId, now);
+    appendRunDelta(db(), a, run.id, "途中", now);
+
+    expect(streamAfter(db(), a, convA.id)).toBe(queued!.id - 1);
+    expect(created!.id).toBe(queued!.id - 1);
+    finishRun(db(), a, run.id, { outcome: "completed", now });
+    expect(streamAfter(db(), a, convA.id)).toBe(eventsAfter(db(), a, convA.id, 0).at(-1)!.id);
+    expect(streamAfter(db(), b, convA.id)).toBe(0);
+  });
+
+  test("history is oldest first and its cursor is accepted only by the same Workspace", () => {
+    for (const text of ["1", "2", "3"]) post(text);
+
+    const page1 = listMessages(db(), a, convA.id, { limit: 2 })!;
+    expect(page1.items.map((m) => m.text)).toEqual(["1", "2"]);
+    expect(listMessages(db(), a, convA.id, { cursor: page1.nextCursor })!.items.map((m) => m.text)).toEqual([
+      "3",
+    ]);
+    expect(listMessages(db(), b, convA.id, {})).toBeUndefined();
+    expect(() => listMessages(db(), b, convB.id, { cursor: page1.nextCursor })).toThrow(InvalidCursor);
+  });
+});
+
+const rejects = (sql: string, params: string[]) =>
+  expect(() => testDb.sqlite.run(sql, params)).toThrow(/FOREIGN KEY constraint failed/);
+
+describe("agent rows in the database", () => {
+  test("the agent tables follow every Workspace-owned table rule", () => {
+    expect(workspaceOwnedTableProblems(testDb.sqlite)).toEqual([]);
+  });
+
+  test("a Session, message or event cannot point at another Workspace's Conversation or Bot", () => {
+    const run = post("1")!.run;
+
+    rejects(
+      "INSERT INTO sessions (id, workspace_id, conversation_id, bot_id, status, opened_at) VALUES ('session_x', ?, ?, ?, 'closed', 0)",
+      [b.workspaceId, convA.id, convA.primaryBotId],
+    );
+    rejects(
+      "INSERT INTO sessions (id, workspace_id, conversation_id, bot_id, status, opened_at) VALUES ('session_y', ?, ?, ?, 'closed', 0)",
+      [a.workspaceId, convA.id, convB.primaryBotId],
+    );
+    rejects(
+      "INSERT INTO messages (id, workspace_id, conversation_id, author_kind, bot_id, run_id, text, created_at) VALUES ('message_x', ?, ?, 'bot', ?, ?, 'x', 0)",
+      [a.workspaceId, convA.id, convB.primaryBotId, run.id],
+    );
+    rejects(
+      "INSERT INTO messages (id, workspace_id, conversation_id, author_kind, text, created_at) VALUES ('message_y', ?, ?, 'owner', 'x', 0)",
+      [b.workspaceId, convA.id],
+    );
+    rejects(
+      "INSERT INTO conversation_events (workspace_id, conversation_id, run_id, event, created_at) VALUES (?, ?, ?, '{}', 0)",
+      [b.workspaceId, convB.id, run.id],
+    );
+  });
+
+  test("a Run cannot be moved to another Workspace", () => {
+    const run = post("1")!.run;
+
+    expect(() =>
+      testDb.sqlite.run("UPDATE runs SET workspace_id = ? WHERE id = ?", [b.workspaceId, run.id]),
+    ).toThrow(/workspace_id is immutable/);
+  });
+});

@@ -1,8 +1,12 @@
 import { z } from "zod";
 
 export * from "./bots.ts";
+export * from "./conversations.ts";
+export * from "./events.ts";
 export * from "./local.ts";
 export * from "./mailbox.ts";
+export * from "./messages.ts";
+export * from "./runs.ts";
 
 const epochMs = z.int().nonnegative();
 

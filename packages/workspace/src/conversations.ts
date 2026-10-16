@@ -30,7 +30,11 @@ export function createConversation(
     if (!bot) return undefined;
     const row = tx
       .insert(conversations)
-      .values({ id: `conversation_${Bun.randomUUIDv7()}`, workspaceId: tenant.workspaceId, createdAt: input.now })
+      .values({
+        id: `conversation_${Bun.randomUUIDv7()}`,
+        workspaceId: tenant.workspaceId,
+        createdAt: input.now,
+      })
       .returning()
       .get();
     tx.insert(conversationParticipants)
