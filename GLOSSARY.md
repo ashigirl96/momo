@@ -38,6 +38,10 @@ _Avoid_: session, web session
 ある Session の中で 1 体の Bot が行う 1 回の実行。それを起こした主体（所有者、Channel binding 経由の外部の人、Job）を持つ。
 _Avoid_: turn, invocation, job
 
+**Job**:
+所有者が保存した、決めた時刻や周期に 1 体の Bot の Run を起こす予定。Bot は案を出せるが、Job を作るのは所有者だけ。
+_Avoid_: schedule, task, cron
+
 **Attachment**:
 Conversation の公開の発言に付いたファイル。その Conversation に参加している Bot すべてが読める。Bot が作業中に作ったファイルは、返答に付けるまで Attachment ではない。
 _Avoid_: file, upload

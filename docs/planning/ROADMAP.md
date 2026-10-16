@@ -14,7 +14,7 @@ NanoClawの確認コミットは `f2934abaf2d89f5b95b19ac1809a0ddc1eda1f79`。On
 
 NanoClawはGatewayだけでなく、ホスト側のルーティング、セッション、承認フロー、スケジュール、コンテナなどを持つ。置き換えるのは「OneCLIの画面」だけではない。[S01–S04](SOURCES.md#nanoclaw--onecli)
 
-この計画は**ユーザーが指定した中核機能の同等性**を目標とする。NanoClawの全チャネル、全provider、専用Slackアプリの自動発行、OneCLIの全ベンダー・全商用機能を無条件に初版へ含める意味ではない。P0で参照機能一覧を固定する。
+この計画は**ユーザーが指定した中核機能の同等性**を目標とする。NanoClawの全チャネル、全provider、専用Slackアプリの自動発行、OneCLIの全ベンダー・全商用機能を無条件に初版へ含める意味ではない。P0で参照機能一覧を固定する。どの機能を初版に含めるかは「初版の同等性と対象外」([#12](https://github.com/ashigirl96/momo/issues/12)) で判定した。
 
 ## 1. 推奨アーキテクチャ
 
@@ -205,7 +205,9 @@ Bot内curl/SDK → CONNECT/TLS終端 → HTTP要求を正規化
 
 HTTPSの中身を変更して資格情報を注入するにはTLS終端とsandbox内のCA信頼設定が必要。環境変数を無視して直結するプログラムも想定し、外側から通信を閉じる。[S11](SOURCES.md#agent-sdk--runtime)
 
-**transportが汎用でも、操作権限が無制限という意味にはしない。** 既知providerのoperation catalog、method/path/body解析、宛先・引数制約に従う。未知API、未対応batch、曖昧な本文、未知content-typeは拒否する。任意SDKとの100%互換を先に約束しない。互換対象と拒否対象を明示する。
+**transportが汎用でも、資格情報を付ける操作の権限が無制限という意味にはしない。** 資格情報を付ける要求は、既知providerのoperation catalog、method/path/body解析、宛先・引数制約に従う。未知API、未対応batch、曖昧な本文、未知content-typeは拒否する。任意SDKとの100%互換を先に約束しない。互換対象と拒否対象を明示する。
+
+資格情報を付けないWebへの通信は、同じGatewayがCONNECTのtunnelで中継する。TLSを終端せず、宛先hostを監査に残し、host自身・private・link-local・metadataには中継しない。Slack・Google・Anthropicのhostへの要求はtunnelにしない。ここからの持ち出しはv1では止めない（[ADR-0005](../adr/0005-bot-web-egress-through-gateway.md)）。
 
 ### 3.2 三つの承認を混ぜない
 
@@ -345,6 +347,8 @@ Rust securitydにVault、短命run identity、Grant、三値policy、Approval、
 
 security.dbは `packages/security` のDrizzle schemaから生成したSQLをRust側で適用し、RustのSQL操作との整合性を試験する。Bunからsecurity.dbを書いたり、同じtable用の別DDL履歴をRust側へ手書きしたりしない。
 
+Botの資格情報を付けないWeb通信はP3に入れず、P3の後に独立した縦切りで足す（P4と並行可、ADR-0005）。
+
 次に、自分で用意した模擬vendorのread/write endpointを使う。Botが操作要求 → Webへ承認 → 模擬vendorに認証付きで一度到達 → 結果がBotへ戻る。模擬vendorが受け取った認証値をそのままログ・返却しない検査も行う。
 
 **P3 gate:** sandboxからenv/ファイル/プロセス引数/ログを検査して実tokenなし。別Workspaceのconnection使用拒否。Grantゼロ拒否。承認後body改変拒否。Gateway停止時は通信失敗。UIを閉じても承認待ちが消えない。
@@ -393,7 +397,7 @@ CA秘密鍵はsecurityd側のみ。CA trustをホスト全体へ無断installし
 
 raw HTTPの承認待ちは無期限の接続維持ではなく、durable operation IDと状態取得/制限付き再試行で扱う。再試行しても同じ承認済み操作が重複実行されない設計にする。既存CLIのerror handlingとの互換性は個別試験する。
 
-**P8 gate:** curlと選定したSDKで成功、環境変数を消した直結は失敗。未知host、IP literal、IPv6、DNS再束縛、redirect、body parser不一致、別connection選択などの拒否を実証。秘密が返却payload・エラー・traceへ漏れない。
+**P8 gate:** curlと選定したSDKで成功、環境変数を消した直結は失敗。未知host・IP literalに資格情報を付けない。private/loopback/link-local/metadata宛とIPv6・DNS再束縛によるその迂回、providerのhostへのtunnel、redirect、body parser不一致、別connection選択などの拒否を実証。秘密が返却payload・エラー・traceへ漏れない。
 
 ### P9 — 配布、復旧、ローカルv1完成
 

@@ -69,12 +69,13 @@ DBを二つに分ける、型にbrandを付ける、RLS風filterを置く、と�
 - [ ] agentはGatewayの実行面だけへ到達し、backend管理面・securityd管理面・他Botに接続できない。
 - [ ] proxy環境変数を消してcurl/SDKで直結しても外へ出られない。
 - [ ] IPv4/IPv6、DNS、UDP/QUIC、IP literal、host gateway、metadata/private IPへの迂回を試験する。
+- [ ] 資格情報を付けないWeb通信もGatewayを通す。宛先hostを監査に残し、host自身（backendのportを含む）・private/loopback/link-local/metadata宛には中継しない。Slack・Google・Anthropicのhostへの要求はtunnelにしない（[ADR-0005](../adr/0005-bot-web-egress-through-gateway.md)）。
 - [ ] Gateway障害時にfail openしない。再起動でegress制限が解除されない。
 - [ ] 短命run capabilityはWorkspace/Bot/Runへ束縛され、期限切れ/取消後は使えない。
 - [ ] sandbox内にある実行capabilityから管理capabilityを取得できない。
 - [ ] `api.anthropic.com`等のモデル通信も接続先・operation・予算を限定し、任意のHTTP relayにしない。
 
-許可されたモデルやSlackへ、許可された内容を送る経路自体は残る。鍵非露出やegress制限だけで、あらゆる意味的な情報持ち出しがなくなるとは主張しない。
+許可されたモデルやSlackへ、許可された内容を送る経路自体は残る。鍵非露出やegress制限だけで、あらゆる意味的な情報持ち出しがなくなるとは主張しない。資格情報を付けないWebへの通信も開いているので、Botが読んだデータは任意のhostへ送れる。v1はこれを止めず、hostの監査で後から追うだけにする（ADR-0005）。
 
 ## E. Policy / Approval / Operation — P3から必須
 
@@ -181,7 +182,7 @@ requested → denied
 - [ ] agent提供Authorization等を上流へそのまま渡さず、認可済みConnectionから注入する。
 - [ ] 許可されていないConnectionをplaceholder/header/bodyで指定できない。
 - [ ] JSON/form等、対応parserの差で権限制約を回避できない。未知batch/圧縮/巨大bodyはfail closed。
-- [ ] certificate pinningや未対応protocolで失敗しても、直結や無検査tunnelへfallbackしない。
+- [ ] providerのhostへの要求は、certificate pinningや未対応protocolで失敗しても、直結や無検査tunnelへfallbackしない。
 - [ ] typed operationと対応HTTP requestのpolicy/approval結果が一致する。
 - [ ] streamや長文responseのメモリ/時間制限があり、途中の秘密反射も扱う。
 - [ ] raw clientの承認待ち/retryが重複外部効果を生まない。
