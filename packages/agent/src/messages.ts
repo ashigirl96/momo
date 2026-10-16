@@ -31,7 +31,7 @@ export type Message = {
   createdAt: Date;
 };
 
-const LIST = "messages";
+const listName = (conversationId: string) => `messages:${conversationId}`;
 
 type RunRef = { status: RunStatus; sessionId: string } | null;
 
@@ -147,7 +147,8 @@ export function listMessages(
   conversationId: string,
   options: { cursor?: string; limit?: number },
 ): Page<Message> | undefined {
-  const after = options.cursor === undefined ? undefined : decodeCursor(tenant, LIST, options.cursor);
+  const after =
+    options.cursor === undefined ? undefined : decodeCursor(tenant, listName(conversationId), options.cursor);
   if (!getConversation(db, tenant, conversationId)) return undefined;
   const limit = pageLimit(options.limit);
   const list = selectMessages(db, tenant)
@@ -162,6 +163,6 @@ export function listMessages(
     .limit(limit + 1)
     .all()
     .map(toMessage);
-  const page = toPage(tenant, LIST, list, limit);
+  const page = toPage(tenant, listName(conversationId), list, limit);
   return { ...page, items: withAttachments(db, tenant, page.items) };
 }
