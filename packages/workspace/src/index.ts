@@ -7,5 +7,7 @@ export const migrations: MigrationSource = {
 };
 
 export * from "./logins.ts";
+export * from "./paging.ts";
+export * from "./scoped.ts";
 export * from "./tenant.ts";
 export * from "./workspaces.ts";
