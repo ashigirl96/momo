@@ -16,6 +16,10 @@
 
 repo は `git remote -v` から決まる。clone の中で動かせば `gh` が自動で判別する。
 
+## spec の integration branch
+
+spec を integration branch で実装するときは、最初の merge のあとに main 向けの draft PR を開き、本文に spec と各 ticket の `Closes #<n>` を書く。CI（`.github/workflows/ci.yml`）は main への push と `pull_request` でしか走らないため、PR が無い integration branch には CI がかからない。ticket は PR の merge で閉じる。
+
 ## Pull requests as a triage surface（PR を triage の対象にするか）
 
 **PRs as a request surface: no.** _（外部からの PR を機能要望として扱う repo なら `yes` にする。`/triage` がこの flag を読む。）_
