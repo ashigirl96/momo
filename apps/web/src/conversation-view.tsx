@@ -4,12 +4,20 @@ import {
   type BotItem,
   type ConversationItem,
   type MessageItem,
+  type SessionCloseReason,
+  type SessionItem,
   type WorkspaceItem,
 } from "@momo/contracts";
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "@/api";
 import { BotBubble, ChatFrame, Composer, HumanBubble, useAlive } from "@/chat-parts";
-import { applyEvent, emptyConversation, withMessage, type ConversationState } from "@/conversation-state";
+import {
+  applyEvent,
+  emptyConversation,
+  timeline,
+  withMessage,
+  type ConversationState,
+} from "@/conversation-state";
 import { MessageText } from "@/message-text";
 
 function parseJson(text: string): unknown {
@@ -35,10 +43,10 @@ function useConversation(workspaceId: string, conversationId: string) {
     (async () => {
       let page = await api.messages(workspaceId, conversationId);
       const streamAfter = page.streamAfter;
-      let loaded = page.messages.reduce(withMessage, emptyConversation);
+      let loaded = page.messages.reduce(withMessage, { ...emptyConversation, sessions: page.sessions });
       while (page.nextCursor && !left.signal.aborted) {
         page = await api.messages(workspaceId, conversationId, page.nextCursor);
-        loaded = page.messages.reduce(withMessage, loaded);
+        loaded = page.messages.reduce(withMessage, { ...loaded, sessions: page.sessions });
       }
       if (left.signal.aborted) return;
       setState(loaded);
@@ -57,6 +65,26 @@ function useConversation(workspaceId: string, conversationId: string) {
 
   const add = (message: MessageItem) => setState((s) => s && withMessage(s, message));
   return { state, failed, add };
+}
+
+const closedLabel: Record<SessionCloseReason, string> = {
+  reset: "ここで Session をリセットしました。この先は新しい Session です。",
+  instructions_changed: "Bot の指示が変わったので、この先は新しい Session です。",
+};
+
+/** momo's own marker; the earlier messages above it stay as they were and are read-only. */
+function SessionDivider({ session }: { session: SessionItem }) {
+  return (
+    <div
+      role="separator"
+      data-testid="session-divider"
+      className="text-muted-foreground flex items-center gap-2 text-xs"
+    >
+      <span className="h-px flex-1 bg-current opacity-30" />
+      {session.closedBy && closedLabel[session.closedBy]}
+      <span className="h-px flex-1 bg-current opacity-30" />
+    </div>
+  );
 }
 
 export function ConversationView(props: {
@@ -78,10 +106,32 @@ export function ConversationView(props: {
       .catch(() => alive.current && setSendFailed(true));
   };
 
+  /** The outcome arrives on the stream, so only a failed request is drawn here. */
+  const act = (request: Promise<unknown>) => {
+    setSendFailed(false);
+    request.catch(() => alive.current && setSendFailed(true));
+  };
+  const cancel = (runId: string) => act(api.cancelRun(props.workspace.id, runId));
+  const reset = () => act(api.resetSession(props.workspace.id, props.conversation.id));
+
   return (
     <ChatFrame
       title={name}
-      actions={props.actions}
+      actions={
+        <>
+          <button
+            type="button"
+            onClick={reset}
+            disabled={!state}
+            data-testid="reset-session"
+            title="Bot の文脈を消して、新しい Session で続けます。これまでの発言は残ります。"
+            className="hover:bg-muted rounded-md px-2 py-1 text-xs"
+          >
+            リセット
+          </button>
+          {props.actions}
+        </>
+      }
       composer={
         <Composer
           placeholder={`${name}にメッセージ`}
@@ -91,22 +141,41 @@ export function ConversationView(props: {
         />
       }
     >
-      {state?.messages.map((m) =>
-        m.author.kind === "owner" ? (
-          <HumanBubble key={m.id} testId="owner-message">
-            <MessageText text={m.text} />
-          </HumanBubble>
-        ) : (
-          <BotBubble key={m.id} testId="bot-message">
-            <MessageText text={m.text} />
-          </BotBubble>
-        ),
-      )}
+      {state &&
+        timeline(state).map((item) => {
+          if (item.kind === "session_closed")
+            return <SessionDivider key={`closed-${item.session.id}`} session={item.session} />;
+          const m = item.message;
+          return m.author.kind === "owner" ? (
+            <HumanBubble key={m.id} testId="owner-message">
+              <MessageText text={m.text} />
+            </HumanBubble>
+          ) : (
+            <BotBubble key={m.id} testId="bot-message">
+              <MessageText text={m.text} />
+              {m.author.cancelled && (
+                <span data-testid="cancelled-mark" className="text-muted-foreground block text-xs">
+                  途中で止めました
+                </span>
+              )}
+            </BotBubble>
+          );
+        })}
       {state?.drafts.map((d) => (
         <BotBubble key={d.runId} testId="bot-draft">
           {d.text && <MessageText text={d.text} />}
-          <span data-testid="typing" className="text-muted-foreground text-xs">
-            {name}が入力中…
+          <span className="flex items-center gap-2">
+            <span data-testid="typing" className="text-muted-foreground text-xs">
+              {name}が入力中…
+            </span>
+            <button
+              type="button"
+              onClick={() => cancel(d.runId)}
+              data-testid="cancel-run"
+              className="hover:bg-background rounded-md border px-2 text-xs"
+            >
+              止める
+            </button>
           </span>
         </BotBubble>
       ))}

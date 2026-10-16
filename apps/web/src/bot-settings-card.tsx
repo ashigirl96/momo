@@ -1,4 +1,5 @@
 import {
+  BOT_INSTRUCTIONS_MAX,
   BotModel,
   BotTool,
   type BotModel as BotModelValue,
@@ -30,6 +31,8 @@ export function BotSettingsCard(props: {
   status: CardStatus;
   note?: string;
   onSettings?: (settings: CardSettings) => void;
+  /** Makes the instructions editable; saving new ones renews the Bot's Sessions. */
+  onInstructions?: (instructions: string) => void;
   actions?: ReactNode;
 }) {
   const editable = props.onSettings !== undefined;
@@ -55,7 +58,18 @@ export function BotSettingsCard(props: {
         <dd data-testid="card-name">{props.name}</dd>
         <dt className="text-muted-foreground">指示</dt>
         <dd data-testid="card-instructions" className="whitespace-pre-wrap break-words">
-          {props.instructions}
+          {props.onInstructions ? (
+            <textarea
+              aria-label="指示"
+              value={props.instructions}
+              maxLength={BOT_INSTRUCTIONS_MAX}
+              rows={3}
+              onChange={(e) => props.onInstructions?.(e.target.value)}
+              className="w-full rounded-md border px-2 py-1"
+            />
+          ) : (
+            props.instructions
+          )}
         </dd>
         <dt className="text-muted-foreground">モデル</dt>
         <dd>
@@ -98,7 +112,11 @@ export function BotSettingsCard(props: {
         <dt className="text-muted-foreground">Workspace</dt>
         <dd data-testid="card-workspace">{props.workspace.name}</dd>
       </dl>
-      {props.note && <p className="text-muted-foreground my-3 text-xs">{props.note}</p>}
+      {props.note && (
+        <p data-testid="card-note" className="text-muted-foreground my-3 text-xs">
+          {props.note}
+        </p>
+      )}
       {props.actions && <div className="mt-3 flex gap-2">{props.actions}</div>}
     </section>
   );

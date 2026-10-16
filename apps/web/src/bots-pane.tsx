@@ -263,10 +263,14 @@ function BotSettingsView(props: {
   onBack: () => void;
 }) {
   const [settings, setSettings] = useState<CardSettings>({ model: props.bot.model, tools: props.bot.tools });
+  const [instructions, setInstructions] = useState(props.bot.instructions);
+  const [renewed, setRenewed] = useState<number | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
   const alive = useAlive();
+  const instructionsChanged = instructions.trim() !== props.bot.instructions;
   const dirty =
+    instructionsChanged ||
     settings.model !== props.bot.model ||
     settings.tools.length !== props.bot.tools.length ||
     settings.tools.some((t) => !props.bot.tools.includes(t));
@@ -275,11 +279,25 @@ function BotSettingsView(props: {
     setBusy(true);
     setFailed(false);
     api
-      .updateBot(props.workspace.id, props.bot.id, settings)
-      .then((bot) => alive.current && props.onChanged(bot))
+      .updateBot(props.workspace.id, props.bot.id, {
+        ...settings,
+        ...(instructionsChanged ? { instructions: instructions.trim() } : {}),
+      })
+      .then((updated) => {
+        if (!alive.current) return;
+        if (updated.sessionsRenewed) setRenewed(updated.closedSessions);
+        setInstructions(updated.bot.instructions);
+        props.onChanged(updated.bot);
+      })
       .catch(() => alive.current && setFailed(true))
       .finally(() => alive.current && setBusy(false));
   };
+
+  const note = instructionsChanged
+    ? "指示を変えて保存すると、この Bot の会話は新しい Session で続きます。これまでの発言は残ります。"
+    : renewed !== undefined
+      ? `指示を変えたので、この Bot の会話は新しい Session で続きます（閉じた Session: ${renewed}）。`
+      : undefined;
 
   return (
     <ChatFrame
@@ -293,10 +311,15 @@ function BotSettingsView(props: {
       <BotSettingsCard
         workspace={props.workspace}
         name={props.bot.name}
-        instructions={props.bot.instructions}
+        instructions={instructions}
         settings={settings}
         status={dirty ? "pending" : "saved"}
+        note={note}
         onSettings={setSettings}
+        onInstructions={(text) => {
+          setInstructions(text);
+          setRenewed(undefined);
+        }}
         actions={dirty && <SaveDiscard busy={busy} onSave={save} saveLabel="変更を保存" />}
       />
       {failed && <p className="text-destructive text-sm">保存できませんでした。</p>}
