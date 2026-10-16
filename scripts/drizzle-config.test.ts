@@ -9,7 +9,7 @@ const domainConfigs = existing(names.map((name) => join(packages, name, "drizzle
 const fixtureConfigs = existing(names.map((name) => join(packages, name, "fixture", "drizzle.config.ts")));
 
 test("only domains that own tables have a drizzle.config.ts", () => {
-  expect(domainConfigs.map((path) => path.split("/").at(-2))).toEqual(["agent", "workspace"]);
+  expect(domainConfigs.map((path) => path.split("/").at(-2))).toEqual(["agent", "memory", "workspace"]);
 });
 
 test.each([...domainConfigs, ...fixtureConfigs])(

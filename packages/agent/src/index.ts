@@ -20,4 +20,5 @@ export {
   type Run,
   type StartedRun,
 } from "./runs.ts";
+export { runs } from "./schema.ts";
 export { getSession, type Session } from "./sessions.ts";
