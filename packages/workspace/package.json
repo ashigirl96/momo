@@ -7,6 +7,7 @@
     "./testing": "./src/testing.ts"
   },
   "dependencies": {
+    "@momo/contracts": "workspace:*",
     "@momo/migrator": "workspace:*",
     "drizzle-orm": "1.0.0-rc.4"
   }

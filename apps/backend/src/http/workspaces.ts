@@ -8,6 +8,7 @@ import {
   type TenantContext,
   type Workspace,
 } from "@momo/workspace";
+import { botRoute } from "./bots.ts";
 import { apiError, json } from "./respond.ts";
 
 export type WorkspaceApiContext = { db: Db; now: () => Date };
@@ -66,7 +67,7 @@ export async function workspaceRoute(
   return tenantRoute({ req, rest: scoped[2] ?? "", tenant, body }, ctx);
 }
 
-function tenantRoute({ req, rest, tenant }: TenantRequest, _ctx: WorkspaceApiContext): Response | undefined {
-  if (rest === "" && req.method === "GET") return json(toItem(tenant.workspace));
-  return undefined;
+async function tenantRoute(request: TenantRequest, ctx: WorkspaceApiContext): Promise<Response | undefined> {
+  if (request.rest === "" && request.req.method === "GET") return json(toItem(request.tenant.workspace));
+  return botRoute(request, ctx);
 }
