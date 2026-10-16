@@ -10,6 +10,7 @@ import {
   type TenantContext,
 } from "@momo/workspace";
 import { and, asc, eq, gt } from "drizzle-orm";
+import { attachmentsOf, toAttachmentItem, type Attachment } from "./attachments.ts";
 import { messages } from "./schema.ts";
 
 type MessageRow = typeof messages.$inferSelect;
@@ -21,19 +22,40 @@ export type Message = {
   conversationId: string;
   author: MessageAuthor;
   text: string;
+  attachments: Attachment[];
   createdAt: Date;
 };
 
 const LIST = "messages";
 
-function toMessage(row: MessageRow): Message {
+function toMessage(row: MessageRow, attachments: Attachment[] = []): Message {
   const author: MessageAuthor =
     row.authorKind === "bot" ? { kind: "bot", botId: row.botId!, runId: row.runId! } : { kind: "owner" };
-  return { id: row.id, conversationId: row.conversationId, author, text: row.text, createdAt: row.createdAt };
+  return {
+    id: row.id,
+    conversationId: row.conversationId,
+    author,
+    text: row.text,
+    attachments,
+    createdAt: row.createdAt,
+  };
+}
+
+function withAttachments(db: Db, tenant: TenantContext, rows: MessageRow[]): Message[] {
+  const byMessage = attachmentsOf(
+    db,
+    tenant,
+    rows.map((r) => r.id),
+  );
+  return rows.map((r) => toMessage(r, byMessage.get(r.id)));
 }
 
 export function toMessageItem(message: Message): MessageItem {
-  return { ...message, createdAt: message.createdAt.getTime() };
+  return {
+    ...message,
+    attachments: message.attachments.map(toAttachmentItem),
+    createdAt: message.createdAt.getTime(),
+  };
 }
 
 /** Inserts a public message; callers check the Conversation (and the Bot's part in it) first. */
@@ -62,13 +84,13 @@ export function insertMessage(
 
 /** All public messages of the Conversation, oldest first, for a Run's input. */
 export function conversationMessages(db: Db, tenant: TenantContext, conversationId: string): Message[] {
-  return db
+  const rows = db
     .select()
     .from(messages)
     .where(and(inTenant(messages, tenant), eq(messages.conversationId, conversationId)))
     .orderBy(asc(messages.id))
-    .all()
-    .map(toMessage);
+    .all();
+  return withAttachments(db, tenant, rows);
 }
 
 /** The Conversation's history, oldest first; undefined when the Conversation is not the tenant's. */
@@ -93,7 +115,7 @@ export function listMessages(
     )
     .orderBy(asc(messages.id))
     .limit(limit + 1)
-    .all()
-    .map(toMessage);
-  return toPage(tenant, LIST, rows, limit);
+    .all();
+  const page = toPage(tenant, LIST, rows, limit);
+  return { ...page, items: withAttachments(db, tenant, page.items) };
 }

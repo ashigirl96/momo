@@ -140,3 +140,25 @@ export const conversationEvents = sqliteTable(
     sameWorkspaceParent(t, t.runId, runs),
   ],
 );
+
+/**
+ * A file on a public message. The bytes live outside app.db at a path derived from the Workspace
+ * and attachment ids only, so the uploaded file name never reaches the file system.
+ */
+export const attachments = sqliteTable(
+  "attachments",
+  {
+    id: text("id").primaryKey(),
+    workspaceId: workspaceIdColumn(),
+    messageId: text("message_id").notNull(),
+    name: text("name").notNull(),
+    contentType: text("content_type").notNull(),
+    size: integer("size").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
+  },
+  (t): Constraints => [
+    workspaceKey(t),
+    index("attachments_message").on(t.workspaceId, t.messageId, t.id),
+    sameWorkspaceParent(t, t.messageId, messages),
+  ],
+);

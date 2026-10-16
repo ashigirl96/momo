@@ -21,3 +21,11 @@ export {
   type StartedRun,
 } from "./runs.ts";
 export { getSession, type Session } from "./sessions.ts";
+export {
+  AttachmentFiles,
+  getAttachment,
+  readAttachment,
+  removeWorkspaceAttachments,
+  type Attachment,
+  type AttachmentUpload,
+} from "./attachments.ts";
