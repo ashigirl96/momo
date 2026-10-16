@@ -1,6 +1,6 @@
 import type { DeletionPreview } from "@momo/contracts";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { useAlive } from "@/chat-parts";
+import { useAlive } from "@/message-parts";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 

@@ -4,12 +4,12 @@ import {
   MESSAGE_TEXT_MAX,
   PostMessageRequest,
 } from "@momo/contracts";
-import { readAttachment, type Attachment, type AttachmentFiles, type AttachmentUpload } from "@momo/agent";
+import { readAttachment, type Attachment, type AttachmentFiles, type NewAttachment } from "@momo/agent";
 import type { TenantContext } from "@momo/workspace";
 import { apiError } from "./respond.ts";
 import { ATTACHMENT_CONTENT_SECURITY_POLICY } from "./security.ts";
 
-export type PostedMessage = { text: string; uploads: AttachmentUpload[] };
+export type PostedMessage = { text: string; newAttachments: NewAttachment[] };
 
 // Room for the multipart boundaries and the text field on top of the files themselves.
 const MULTIPART_BODY_MAX = ATTACHMENTS_PER_MESSAGE_MAX * ATTACHMENT_SIZE_MAX + 64 * 1024;
@@ -31,11 +31,11 @@ async function readMultipart(req: Request): Promise<PostedMessage | string> {
   if (typeof text !== "string") return "text must be a string";
   const files = form.getAll("file");
   if (files.length > ATTACHMENTS_PER_MESSAGE_MAX) return `at most ${ATTACHMENTS_PER_MESSAGE_MAX} files`;
-  const uploads: AttachmentUpload[] = [];
+  const newAttachments: NewAttachment[] = [];
   for (const file of files) {
     if (typeof file === "string") return "file must be a file";
     if (file.size > ATTACHMENT_SIZE_MAX) return `each file must be at most ${ATTACHMENT_SIZE_MAX} bytes`;
-    uploads.push({
+    newAttachments.push({
       name: file.name,
       contentType: file.type,
       bytes: new Uint8Array(await file.arrayBuffer()),
@@ -43,8 +43,8 @@ async function readMultipart(req: Request): Promise<PostedMessage | string> {
   }
   const trimmed = text.trim();
   if (trimmed.length > MESSAGE_TEXT_MAX) return `text must be at most ${MESSAGE_TEXT_MAX} characters`;
-  if (trimmed === "" && uploads.length === 0) return "expected text or files";
-  return { text: trimmed, uploads };
+  if (trimmed === "" && newAttachments.length === 0) return "expected text or files";
+  return { text: trimmed, newAttachments };
 }
 
 /** Reads `POST …/messages`: JSON `{ text }`, or a multipart body with text and files. */
@@ -58,7 +58,7 @@ export async function readPostedMessage(
   }
   const input = PostMessageRequest.safeParse(await body());
   if (!input.success) return apiError("bad_request", "expected { text } of 1–4000 characters");
-  return { text: input.data.text, uploads: [] };
+  return { text: input.data.text, newAttachments: [] };
 }
 
 /** RFC 8187 `ext-value`, so any file name survives the header without breaking it. */

@@ -12,7 +12,7 @@ import {
 import { useEffect, useState, type ReactNode } from "react";
 import { api } from "@/api";
 import { AttachmentFrame } from "@/attachment-frame";
-import { BotBubble, ChatFrame, Composer, HumanBubble, useAlive } from "@/chat-parts";
+import { BotBubble, MessageFrame, Composer, HumanBubble, useAlive } from "@/message-parts";
 import {
   applyEvent,
   emptyConversation,
@@ -120,7 +120,7 @@ export function ConversationView(props: {
   const reset = () => act(api.resetSession(props.workspace.id, props.conversation.id));
 
   return (
-    <ChatFrame
+    <MessageFrame
       title={name}
       actions={
         <>
@@ -198,6 +198,6 @@ export function ConversationView(props: {
       {(failed || sendFailed) && (
         <p className="text-destructive text-sm">うまくいきませんでした。もう一度試してください。</p>
       )}
-    </ChatFrame>
+    </MessageFrame>
   );
 }

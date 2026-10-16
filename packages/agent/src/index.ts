@@ -36,5 +36,5 @@ export {
   removeAttachmentFiles,
   removeWorkspaceAttachments,
   type Attachment,
-  type AttachmentUpload,
+  type NewAttachment,
 } from "./attachments.ts";

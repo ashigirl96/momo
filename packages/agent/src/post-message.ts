@@ -1,6 +1,6 @@
 import type { Db } from "@momo/migrator";
 import { getConversation, type TenantContext } from "@momo/workspace";
-import { insertAttachments, type AttachmentFiles, type AttachmentUpload } from "./attachments.ts";
+import { insertAttachments, type AttachmentFiles, type NewAttachment } from "./attachments.ts";
 import { appendEvent } from "./events.ts";
 import { insertMessage, toMessageItem, type Message } from "./messages.ts";
 import { queueRun, type Run } from "./runs.ts";
@@ -18,7 +18,7 @@ export function postOwnerMessage(
     conversationId: string;
     text: string;
     now: Date;
-    attachments?: { files: AttachmentFiles; uploads: AttachmentUpload[] };
+    attachments?: { files: AttachmentFiles; newAttachments: NewAttachment[] };
   },
 ): { message: Message; run: Run } | undefined {
   const written: string[] = [];

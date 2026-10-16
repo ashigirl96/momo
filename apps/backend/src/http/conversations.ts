@@ -137,7 +137,7 @@ export async function conversationRoute(
       conversationId: conversation.id,
       text: input.text,
       now: ctx.now(),
-      attachments: { files: ctx.attachments, uploads: input.uploads },
+      attachments: { files: ctx.attachments, newAttachments: input.newAttachments },
     });
     if (!posted) return apiError("not_found", "no such Conversation");
     ctx.hub.notify(tenant.workspaceId, conversation.id);

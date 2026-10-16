@@ -19,7 +19,7 @@ import {
 import { join } from "node:path";
 import { attachments, messages } from "./schema.ts";
 
-export type AttachmentUpload = { name: string; contentType: string; bytes: Uint8Array };
+export type NewAttachment = { name: string; contentType: string; bytes: Uint8Array };
 
 export type Attachment = {
   id: string;
@@ -147,8 +147,8 @@ export class AttachmentFiles {
 }
 
 /** The display name: the last path segment without control characters; never used as a path. */
-export function attachmentName(uploaded: string): string {
-  const last = uploaded.split(/[/\\]/).at(-1) ?? "";
+export function attachmentName(given: string): string {
+  const last = given.split(/[/\\]/).at(-1) ?? "";
   const clean = [...last]
     .filter((c) => c >= " " && c !== "\u007f")
     .join("")
@@ -183,7 +183,7 @@ export function toAttachmentItem(attachment: Attachment): AttachmentItem {
 }
 
 /**
- * Writes each upload's file, then its row; the caller runs this inside the message's transaction
+ * Writes each new Attachment's file, then its row; the caller runs this inside the message's transaction
  * and removes `written` files if that transaction fails.
  */
 export function insertAttachments(
@@ -192,24 +192,24 @@ export function insertAttachments(
   input: {
     messageId: string;
     files: AttachmentFiles;
-    uploads: AttachmentUpload[];
+    newAttachments: NewAttachment[];
     now: Date;
     written: string[];
   },
 ): Attachment[] {
-  return input.uploads.map((upload) => {
+  return input.newAttachments.map((added) => {
     const id = `attachment_${Bun.randomUUIDv7()}`;
     input.written.push(id);
-    input.files.write(tenant, id, upload.bytes);
+    input.files.write(tenant, id, added.bytes);
     const row = db
       .insert(attachments)
       .values({
         id,
         workspaceId: tenant.workspaceId,
         messageId: input.messageId,
-        name: attachmentName(upload.name),
-        contentType: attachmentContentType(upload.contentType),
-        size: upload.bytes.length,
+        name: attachmentName(added.name),
+        contentType: attachmentContentType(added.contentType),
+        size: added.bytes.length,
         createdAt: input.now,
       })
       .returning()

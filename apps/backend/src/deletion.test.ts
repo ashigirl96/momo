@@ -85,7 +85,7 @@ function seed(name: string, secret: string): Seeded {
     now,
     attachments: {
       files,
-      uploads: [
+      newAttachments: [
         { name: `${secret}.txt`, contentType: "text/plain", bytes: new TextEncoder().encode(secret) },
       ],
     },

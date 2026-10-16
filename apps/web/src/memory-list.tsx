@@ -1,7 +1,7 @@
 import type { BotItem, MemoryItem, MemoryProvenance, WorkspaceItem } from "@momo/contracts";
 import { useEffect, useState } from "react";
 import { api, NotFound } from "@/api";
-import { useAlive } from "@/chat-parts";
+import { useAlive } from "@/message-parts";
 
 const timeFormat = new Intl.DateTimeFormat("ja-JP", { dateStyle: "short", timeStyle: "short" });
 

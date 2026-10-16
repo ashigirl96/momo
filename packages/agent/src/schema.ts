@@ -149,7 +149,7 @@ export const conversationEvents = sqliteTable(
 
 /**
  * A file on a public message. The bytes live outside app.db at a path derived from the Workspace
- * and attachment ids only, so the uploaded file name never reaches the file system.
+ * and attachment ids only, so the given file name never reaches the file system.
  */
 export const attachments = sqliteTable(
   "attachments",
