@@ -209,3 +209,13 @@ host の囮の log には、どの測定でも `listening` 以外の行が無か
 | 秘密非露出 | 未実施 | 実 token を使っていない | placeholder の key で runner が動くことだけを確かめた |
 | 再起動復旧 | Gateway・container・`container system` の再起動は pass、Mac の再起動は未実施 | `gw-restart.sh`、`restart.sh`（模擬） | Gateway の停止中に同じ path を取った process には届く。dir を 0700 にする |
 | 外部効果 | pass（Gateway 以外へ出ない） | `run.sh probe`、`run.sh vsock`、`tools/netprobe.ts`、host の囮の log（模擬） | — |
+
+## Mac の再起動のあと（2026-10-16 に実測）
+
+`sh reboot-check.sh` を、再起動して login した 4 分後に、何も起こす前に流した。
+
+- apiserver は launchd に残らず、`container system status` は "not registered with launchd" だった。`container system start` は 1 秒で返った。
+- `momo-cmp-a-keep` は stopped のままだった。Gateway の socket が無いと `container start` は失敗し、socket を置くと 1 秒で起きた。
+- uid 1000 の probe は、Gateway の UDS と lo の shim だけに届き、ほかはすべて塞がった。host の囮の log は `listening` だけだった。
+- 再起動の前に作った Agent SDK の session を resume でき、`sameSession: true` になった。
+- 推論: 再起動のあとは momo が `container system start` を呼ぶ必要がある。Gateway の socket の dir は TMPDIR の下では消えるので、momo のデータ dir に置く。

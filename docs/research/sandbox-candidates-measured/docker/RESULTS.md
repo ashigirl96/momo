@@ -212,3 +212,15 @@ proxy の環境変数は付けずに測った。「塞ぐ」は Gateway 以外�
 | 秘密非露出 | 未実施 | 実 token を使っていない。偽の endpoint が受けた `x-api-key` は placeholder | — |
 | 再起動復旧 | Gateway・container・Docker Desktop は pass（模擬）、Mac の再起動は未実施 | `gw-restart.sh`、`probe-live.sh`、`docker desktop restart` のあと `docker start` | Docker Desktop の再起動で container は戻らないので momo が起こす。Gateway の停止中は port を他の process に取られ得る |
 | 外部効果 | isolated の internal network は pass、既定の internal network は VM の service に届くので fail（模擬） | `run.sh probe momo-cmp-d-iso`、`portscan.py`、tcpdump（模擬の Gateway と囮） | 中継は絞らないと外部・host・LAN に届く（agent からは中継の port だけ） |
+
+## Mac の再起動のあと（2026-10-16 に実測）
+
+`reboot-check.sh` を、再起動して login した 4 分後に流した。
+
+- AutoStart は off のままだったが、script を流す前から Docker Desktop が動いていて、docker API も応答した。login 項目か macOS の再開によるとみられ、原因は確かめていない。
+- network の `momo-cmp-d-int` と `momo-cmp-d-iso` は残っていた。container は 3 つとも Exited のままだった。`unless-stopped` の `momo-cmp-d-agent-rp` は再起動の前に手で止めていたので、起きないのは仕様どおり。
+- 中継の alias（`gateway`）は残っていた。`docker start` は 1 秒以内に終わった。
+- isolated の network の probe は blocked が 51 件で、届いたのは中継の 2 つの port だけだった。cgroup の値（cpu・memory・swap・pids）と uid も前と同じだった。
+- Gateway の停止中は connect のあとすぐ EOF になり、再起動のあとは container を起こし直さずに戻った。
+- 再起動の前の Agent SDK の session を resume でき、`sameSession: true` になった。
+- Gateway の socket の dir（TMPDIR の下）は消えていた。
