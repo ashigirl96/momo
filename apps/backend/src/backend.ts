@@ -3,8 +3,11 @@ import { migrate, openDatabase } from "@momo/migrator";
 import { buildWeb, type WebAsset } from "@momo/web/build";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { join } from "node:path";
+import { ConversationHub } from "./conversation-hub.ts";
 import { prepareDataDir, macProbes, type HostProbes } from "./data-dir.ts";
 import { appDbDomains } from "./domains.ts";
+import { FakeRunner } from "./fake-runner.ts";
+import { RunLoop } from "./run-loop.ts";
 import { createApp } from "./http/app.ts";
 import { listenLoopback, listenUnixSocket } from "./listen.ts";
 import { PairingTokens } from "./pairing.ts";
@@ -16,6 +19,10 @@ export type BackendOptions = {
   socketPath?: string;
   probes?: HostProbes;
   now?: () => Date;
+  /** Pause between the fake runner's stream deltas. */
+  fakeRunnerDelayMs?: number;
+  /** How often an open SSE stream re-checks its Login and Workspace. */
+  streamCheckMs?: number;
 };
 
 export type Backend = {
@@ -49,12 +56,28 @@ export async function startBackend(options: BackendOptions): Promise<Backend> {
 
   try {
     migrate(sqlite, appDbDomains);
+    const db = drizzle({ client: sqlite });
+    const hub = new ConversationHub();
+    const runs = new RunLoop({
+      db,
+      hub,
+      now,
+      runner: new FakeRunner({ delayMs: options.fakeRunnerDelayMs ?? 60 }),
+    });
+    stops.push(() => {
+      runs.stop();
+      hub.closeAll();
+    });
+    runs.recover();
     const assets = await webAssets();
     const pairing = new PairingTokens(now);
     let host = "";
     let origin = "";
     const app = createApp({
-      db: drizzle({ client: sqlite }),
+      db,
+      runs,
+      hub,
+      streamCheckMs: options.streamCheckMs ?? 5000,
       pairing,
       now,
       warnings,

@@ -2,13 +2,19 @@ import {
   BotItem,
   BotList,
   BotSettingsProposal,
+  ConversationItem,
+  ConversationList,
   LoginList,
+  MessagePage,
+  PostMessageResponse,
   Status,
   WorkspaceItem,
   WorkspaceList,
   type CreateBotRequest,
+  type CreateConversationRequest,
   type CreateWorkspaceRequest,
   type PairRequest,
+  type PostMessageRequest,
   type ProposeBotRequest,
   type UpdateBotRequest,
 } from "@momo/contracts";
@@ -59,4 +65,27 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(body),
     }),
+  conversations: (workspaceId: string) => request(`${scoped(workspaceId)}/conversations`, ConversationList),
+  createConversation: (workspaceId: string, body: CreateConversationRequest) =>
+    request(`${scoped(workspaceId)}/conversations`, ConversationItem, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  messages: (workspaceId: string, conversationId: string, cursor?: string) =>
+    request(
+      `${conversation(workspaceId, conversationId)}/messages${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+      MessagePage,
+    ),
+  postMessage: (workspaceId: string, conversationId: string, body: PostMessageRequest) =>
+    request(`${conversation(workspaceId, conversationId)}/messages`, PostMessageResponse, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  /** The browser resumes with `Last-Event-ID` on its own; `after` only sets the first connect. */
+  conversationEvents: (workspaceId: string, conversationId: string, after: number) =>
+    new EventSource(`${conversation(workspaceId, conversationId)}/events?after=${after}`),
 };
+
+function conversation(workspaceId: string, conversationId: string) {
+  return `${scoped(workspaceId)}/conversations/${encodeURIComponent(conversationId)}`;
+}

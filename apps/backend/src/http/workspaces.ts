@@ -8,18 +8,30 @@ import {
   type TenantContext,
   type Workspace,
 } from "@momo/workspace";
+import type { Server } from "bun";
 import { botRoute } from "./bots.ts";
+import { conversationRoute, type ConversationApiContext } from "./conversations.ts";
 import { apiError, json } from "./respond.ts";
 
-export type WorkspaceApiContext = { db: Db; now: () => Date };
+export type WorkspaceApiContext = ConversationApiContext & { db: Db; now: () => Date };
 
-type AuthedRequest = { req: Request; path: string; login: LoginSummary; body: () => Promise<unknown> };
+type AuthedRequest = {
+  req: Request;
+  server: Server<undefined>;
+  path: string;
+  login: LoginSummary;
+  stillLoggedIn: () => boolean;
+  body: () => Promise<unknown>;
+};
 
 /** A request under `/api/workspaces/:workspaceId`, with the Workspace resolved on the trusted side. */
 export type TenantRequest = {
   req: Request;
+  server: Server<undefined>;
   rest: string;
   tenant: TenantContext;
+  /** Resolves the Login and the Workspace again, for a long-lived stream to re-check its access. */
+  reauthorize: () => TenantContext | undefined;
   body: () => Promise<unknown>;
 };
 
@@ -39,7 +51,7 @@ function decode(segment: string): string | undefined {
 
 /** Routes the Workspace API; undefined means the path is not one of ours. */
 export async function workspaceRoute(
-  { req, path, login, body }: AuthedRequest,
+  { req, server, path, login, stillLoggedIn, body }: AuthedRequest,
   ctx: WorkspaceApiContext,
 ): Promise<Response | undefined> {
   if (path === "/api/workspaces") {
@@ -61,13 +73,15 @@ export async function workspaceRoute(
   if (query.has("workspaceId") || query.has("workspace_id"))
     return apiError("bad_request", "the Workspace is named by the path only");
   const id = decode(scoped[1]!);
-  const tenant =
+  const resolve = () =>
     id === undefined ? undefined : resolveTenant(ctx.db, id, { kind: "owner", loginId: login.id });
+  const tenant = resolve();
   if (!tenant) return apiError("not_found", "no such Workspace");
-  return tenantRoute({ req, rest: scoped[2] ?? "", tenant, body }, ctx);
+  const reauthorize = () => (stillLoggedIn() ? resolve() : undefined);
+  return tenantRoute({ req, server, rest: scoped[2] ?? "", tenant, reauthorize, body }, ctx);
 }
 
 async function tenantRoute(request: TenantRequest, ctx: WorkspaceApiContext): Promise<Response | undefined> {
   if (request.rest === "" && request.req.method === "GET") return json(toItem(request.tenant.workspace));
-  return botRoute(request, ctx);
+  return (await conversationRoute(request, ctx)) ?? botRoute(request, ctx);
 }

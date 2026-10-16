@@ -32,7 +32,8 @@ function toItem(bot: Bot): BotItem {
 function proposalFrom(messages: unknown[]): BotSettingsProposal | undefined {
   for (const message of messages) {
     const parsed = RunnerOutbound.safeParse(message);
-    if (parsed.success && parsed.data.tool.kind === "propose_bot_settings") return parsed.data.tool.proposal;
+    if (!parsed.success || parsed.data.kind !== "tool_request" || parsed.data.runId !== undefined) continue;
+    if (parsed.data.tool.kind === "propose_bot_settings") return parsed.data.tool.proposal;
   }
   return undefined;
 }

@@ -1,20 +1,24 @@
 import { PairRequest, type LoginItem, type LoginList, type Status, type Warning } from "@momo/contracts";
-import type { Db } from "@momo/migrator";
 import { authenticateLogin, createLogin, listLogins, revokeLogin, type LoginSummary } from "@momo/workspace";
 import type { Server } from "bun";
 import type { PairingTokens } from "../pairing.ts";
+import type { ConversationApiContext } from "./conversations.ts";
 import { clearedLoginCookie, loginCookie, readLoginToken } from "./login-cookie.ts";
 import { apiError, json, noContent } from "./respond.ts";
 import { workspaceRoute } from "./workspaces.ts";
 
-export type ApiContext = {
-  db: Db;
+export type ApiContext = ConversationApiContext & {
   pairing: PairingTokens;
-  now: () => Date;
   warnings: Warning[];
 };
 
-type Authed = { req: Request; server: Server<undefined>; login: LoginSummary; path: string };
+type Authed = {
+  req: Request;
+  server: Server<undefined>;
+  login: LoginSummary;
+  path: string;
+  stillLoggedIn: () => boolean;
+};
 
 async function readJson(req: Request): Promise<unknown> {
   try {
@@ -58,8 +62,14 @@ function events(req: Request, server: Server<undefined>): Response {
   });
 }
 
-async function authedRoute({ req, server, login, path }: Authed, ctx: ApiContext): Promise<Response> {
-  const workspace = await workspaceRoute({ req, path, login, body: () => readJson(req) }, ctx);
+async function authedRoute(
+  { req, server, login, path, stillLoggedIn }: Authed,
+  ctx: ApiContext,
+): Promise<Response> {
+  const workspace = await workspaceRoute(
+    { req, server, path, login, stillLoggedIn, body: () => readJson(req) },
+    ctx,
+  );
   if (workspace) return workspace;
   if (path === "/api/status" && req.method === "GET") {
     return json({ loginId: login.id, warnings: ctx.warnings } satisfies Status);
@@ -85,7 +95,8 @@ export async function handleApi(req: Request, server: Server<undefined>, ctx: Ap
   const token = readLoginToken(req);
   const auth = authenticateLogin(ctx.db, token, ctx.now());
   if (!auth) return apiError("unauthenticated", "no Login; run `momo open`");
-  const res = await authedRoute({ req, server, login: auth.login, path }, ctx);
+  const stillLoggedIn = () => authenticateLogin(ctx.db, token, ctx.now())?.login.id === auth.login.id;
+  const res = await authedRoute({ req, server, login: auth.login, path, stillLoggedIn }, ctx);
   if (auth.renewed && !res.headers.has("set-cookie")) res.headers.set("set-cookie", loginCookie(token));
   return res;
 }
